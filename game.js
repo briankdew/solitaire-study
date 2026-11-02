@@ -1,5 +1,5 @@
 /*
- * Six-Card Solitaire — game rules.
+ * n-Card Solitaire — game rules (any top card from 2 to K, 2 or 4 suits).
  *
  * Pure functions with no DOM access: every function that changes the game
  * returns a new state object (or null when the move is illegal), so the UI
@@ -13,22 +13,58 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const SUITS = ['S', 'D'];
-  const SUIT_SYMBOL = { S: '♠︎', D: '♦︎' }; // ♠ ♦ (text style, not emoji)
-  const SUIT_NAME = { S: 'spades', D: 'diamonds' };
-  const RANK_LABEL = { 1: 'A', 2: '2', 3: '3' };
-  const RANK_NAME = { 1: 'Ace', 2: '2', 3: '3' };
+  // Suits in play: two suits use spades and diamonds; four add hearts and clubs.
+  const SUITS_BY_COUNT = { 2: ['S', 'D'], 4: ['S', 'H', 'C', 'D'] };
+  const SUIT_SYMBOL = { S: '♠︎', H: '♥︎', C: '♣︎', D: '♦︎' }; // text style, not emoji
+  const SUIT_NAME = { S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' };
+  const RANK_LABEL = { 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K' };
+  const RANK_NAME = { 1: 'Ace', 11: 'Jack', 12: 'Queen', 13: 'King' };
 
-  const DRAW_COUNT = 3;        // cards turned from the stock each time
-  const EMPTY_COLUMN_RANK = 3; // an empty column accepts a 3 (instead of a King)
-  const TOP_RANK = 3;          // a foundation is complete at this rank
+  const DRAW_COUNT = 3; // cards turned from the stock each time
+
+  // Settings. An empty column accepts the highest card (a King in classic Klondike).
+  const HIGHEST_CHOICES = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
+  const COLUMN_CHOICES = [2, 3, 4];
+  const SUIT_CHOICES = [2, 4];
+  const DEFAULT_SETTINGS = { highest: 3, columns: 2, suits: 2 };
+
+  /* ---------- settings ---------- */
+
+  /** Cards dealt to the columns: 1 + 2 + ... + columns. */
+  const staircaseSize = (columns) => (columns * (columns + 1)) / 2;
+
+  /** Column counts that still leave at least one card for the stock. */
+  function allowedColumns(highest, suits = 2) {
+    return COLUMN_CHOICES.filter((c) => staircaseSize(c) < highest * suits);
+  }
+
+  /** Smallest highest card that allows this many columns. */
+  function minHighestFor(columns, suits = 2) {
+    return Math.floor(staircaseSize(columns) / suits) + 1;
+  }
+
+  /**
+   * Clean up settings: unknown values fall back to the defaults, and a
+   * column count that leaves no stock drops to the largest one that fits.
+   */
+  function normalizeSettings(input = {}) {
+    const pick = (value, choices, fallback) => (choices.includes(Number(value)) ? Number(value) : fallback);
+    const highest = pick(input.highest, HIGHEST_CHOICES, DEFAULT_SETTINGS.highest);
+    const suits = pick(input.suits, SUIT_CHOICES, DEFAULT_SETTINGS.suits);
+    const allowed = allowedColumns(highest, suits);
+    let columns = pick(input.columns, COLUMN_CHOICES, DEFAULT_SETTINGS.columns);
+    if (!allowed.includes(columns)) {
+      columns = allowed.filter((c) => c <= columns).pop() || allowed[0];
+    }
+    return { highest, columns, suits };
+  }
 
   /* ---------- cards ---------- */
 
-  function makeDeck() {
+  function makeDeck(highest = DEFAULT_SETTINGS.highest, suits = DEFAULT_SETTINGS.suits) {
     const deck = [];
-    for (const suit of SUITS) {
-      for (let rank = 1; rank <= TOP_RANK; rank++) {
+    for (const suit of SUITS_BY_COUNT[suits]) {
+      for (let rank = 1; rank <= highest; rank++) {
         deck.push({ id: RANK_LABEL[rank] + suit, rank, suit, faceUp: false });
       }
     }
@@ -44,37 +80,49 @@
     return a;
   }
 
-  const isRed = (card) => card.suit === 'D';
+  const isRed = (card) => card.suit === 'D' || card.suit === 'H';
   const top = (pile) => pile[pile.length - 1];
   const label = (card) => RANK_LABEL[card.rank] + SUIT_SYMBOL[card.suit];
-  const spokenName = (card) => `${RANK_NAME[card.rank]} of ${SUIT_NAME[card.suit]}`;
+  const spokenName = (card) => `${RANK_NAME[card.rank] || card.rank} of ${SUIT_NAME[card.suit]}`;
   const clone = (state) => JSON.parse(JSON.stringify(state));
+  /** The game's top rank (older saved games without it used 3). */
+  const highestOf = (state) => state.highest || 3;
 
   /* ---------- dealing ---------- */
 
   /**
-   * Deal a 6-card deck in the given order:
-   *   deck[0]        -> column 1, face up
-   *   deck[1]        -> column 2, face down
-   *   deck[2]        -> column 2, face up
-   *   deck[3..5]     -> stock, face down (deck[5] on top)
+   * Deal a deck in the given order as a staircase:
+   *   column 1 gets 1 card, column 2 gets 2, ... (only the last card face up),
+   *   and the rest form the stock, face down (the deck's last card on top).
    * The first three stock cards are then turned onto the waste, so a card
-   * is playable right away.
+   * is playable right away. With the default 6 cards and 2 columns:
+   *   deck[0] -> column 1; deck[1], deck[2] -> column 2; deck[3..5] -> stock.
    */
-  function deal(deck) {
+  function deal(deck, options = {}) {
+    const columns = options.columns || 2;
+    const highest = Math.max(...deck.map((card) => card.rank));
+    const suitCount = new Set(deck.map((card) => card.suit)).size;
     const c = deck.map((card) => ({ ...card, faceUp: false }));
-    const up = (card) => ({ ...card, faceUp: true });
+    const tableau = [];
+    let k = 0;
+    for (let i = 0; i < columns; i++) {
+      const col = [];
+      for (let j = 0; j <= i; j++) col.push({ ...c[k++], faceUp: j === i });
+      tableau.push(col);
+    }
     return draw({
-      stock: [c[3], c[4], c[5]],
+      highest,
+      stock: c.slice(k),
       waste: [],
       wasteFan: 0, // how many of the waste's top cards are fanned out
-      tableau: [[up(c[0])], [c[1], up(c[2])]],
-      foundations: [[], []],
+      tableau,
+      foundations: Array.from({ length: suitCount }, () => []),
     });
   }
 
-  function newGame(rng = Math.random) {
-    return deal(shuffle(makeDeck(), rng));
+  function newGame(rng = Math.random, settings = DEFAULT_SETTINGS) {
+    const s = normalizeSettings(settings);
+    return deal(shuffle(makeDeck(s.highest, s.suits), rng), s);
   }
 
   /* ---------- rules ---------- */
@@ -98,7 +146,7 @@
     const dest = state.tableau[col];
     if (!dest) return false;
     const t = top(dest);
-    if (!t) return cards[0].rank === EMPTY_COLUMN_RANK;
+    if (!t) return cards[0].rank === highestOf(state); // empty column takes the highest card
     return t.faceUp && cards[0].rank === t.rank - 1 && isRed(cards[0]) !== isRed(t);
   }
 
@@ -214,7 +262,8 @@
 
   /**
    * Where a click sends the playable waste card or a face-up column card
-   * (with any cards on top of it):
+   * (with any cards on top of it). A foundation's top card goes to the
+   * leftmost column that takes it, and nowhere else. Otherwise:
    *   0. an Ace always goes straight to a foundation, otherwise
    *   1. the leftmost other column that accepts it, otherwise
    *   2. the foundation that accepts it (single cards only), otherwise null.
@@ -222,9 +271,16 @@
    * empty column, since that would change nothing.
    */
   function clickTarget(state, from) {
-    if (!from || (from.pile !== 'waste' && from.pile !== 'tableau')) return null;
+    if (!from || !['waste', 'tableau', 'foundation'].includes(from.pile)) return null;
     const cards = pickUp(state, from);
     if (!cards) return null;
+    if (from.pile === 'foundation') {
+      // A foundation's top card comes back down to the leftmost column that takes it.
+      for (let col = 0; col < state.tableau.length; col++) {
+        if (canPlaceOnTableau(state, cards, col)) return { pile: 'tableau', index: col };
+      }
+      return null;
+    }
     if (cards.length === 1 && cards[0].rank === 1) {
       const f = foundationTargetFor(state, cards[0]);
       if (f >= 0) return { pile: 'foundation', index: f };
@@ -254,7 +310,7 @@
   }
 
   function isWon(state) {
-    return state.foundations.every((pile) => pile.length === TOP_RANK);
+    return state.foundations.every((pile) => pile.length === highestOf(state));
   }
 
   /** True once nothing is hidden or left to draw, so the game can play itself out. */
@@ -295,10 +351,17 @@
 
   return {
     DRAW_COUNT,
-    EMPTY_COLUMN_RANK,
-    TOP_RANK,
+    HIGHEST_CHOICES,
+    COLUMN_CHOICES,
+    SUIT_CHOICES,
+    DEFAULT_SETTINGS,
     SUIT_SYMBOL,
     RANK_LABEL,
+    staircaseSize,
+    allowedColumns,
+    minHighestFor,
+    normalizeSettings,
+    highestOf,
     makeDeck,
     shuffle,
     deal,

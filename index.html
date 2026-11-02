@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Six-Card Solitaire</title>
+<title>n-Card Solitaire</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A six-card, draw-three solitaire with the A, 2 and 3 of spades and diamonds. Empty columns take a 3.">
+<meta name="description" content="n-Card Solitaire: a draw-three Klondike for learning solitaire, with any deck from 4 to 52 cards. Empty columns take the highest card.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:wght@500;700&family=Karla:wght@400;600;700&display=swap">
 <style>
-  /* Layout: one felt table. Stock and the fanned waste on the left, two foundations on the right,
-     two columns centered below. Card size scales with the table width. */
+  /* Layout: one felt table. Stock and the fanned waste on the left, foundations on the right,
+     columns centered below. Card size scales with the table width and the number of foundations. */
   :root {
     --felt: #2f6b57;
     --felt-deep: #1f4d3f;
@@ -55,13 +55,13 @@
     line-height: 1.5;
   }
   .app {
-    max-width: 640px;
+    max-width: 680px;
     margin: 0 auto;
     padding-block: 20px 40px;
     padding-left: max(16px, env(safe-area-inset-left, 0px));
     padding-right: max(16px, env(safe-area-inset-right, 0px));
     display: grid;
-    gap: 18px;
+    gap: 16px;
   }
 
   /* ---------- header ---------- */
@@ -75,6 +75,7 @@
     letter-spacing: 0.005em;
     text-wrap: balance;
   }
+  .brand h1 .var { font-weight: 500; padding-right: 0.04em; }
   .brand p {
     margin: 4px 0 0;
     font-size: 0.75rem;
@@ -83,7 +84,7 @@
     letter-spacing: 0.1em;
     color: var(--ink-muted);
   }
-  .toolbar { display: flex; align-items: center; gap: 8px; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .moves {
     font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted);
     margin-right: 6px; font-variant-numeric: tabular-nums;
@@ -100,7 +101,31 @@
   }
   .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, transparent); }
   .btn:disabled { opacity: 0.4; cursor: default; }
-  .btn:focus-visible, .slot:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+  .btn:focus-visible, .slot:focus-visible, .field select:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+
+  /* ---------- settings ---------- */
+  .settings {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px;
+    margin: 0;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--slot);
+  }
+  .field { display: grid; gap: 3px; }
+  .field span {
+    font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
+  }
+  .field select {
+    font: 600 0.95rem/1.2 var(--font-ui);
+    color: var(--ink);
+    background: color-mix(in srgb, var(--felt-deep) 70%, transparent);
+    border: 1px solid var(--slot);
+    border-radius: 6px;
+    padding: 6px 8px;
+    min-width: 4.5em;
+    cursor: pointer;
+  }
+  .field select option { color: var(--black); background: var(--card); }
+  .hint { flex: 1 1 14em; min-width: 0; margin: 0; font-size: 0.8rem; color: var(--ink-muted); align-self: center; }
 
   /* ---------- table ---------- */
   .table-wrap { position: relative; }
@@ -118,7 +143,7 @@
     border: 1.5px solid var(--slot);
     display: grid; place-items: center;
     color: var(--slot);
-    font: 700 calc(var(--cw) * 0.38) / 1 var(--font-display);
+    font: 700 calc(var(--cw) * 0.36) / 1 var(--font-display);
     background: color-mix(in srgb, var(--felt-deep) 35%, transparent);
     padding: 0;
   }
@@ -141,6 +166,7 @@
   .card.grab { pointer-events: auto; cursor: grab; }
   .card.dragging { transition: none; cursor: grabbing; }
   .no-anim .card { transition: none; }
+  .board.closed .card { display: none; } /* after Quit: empty table, outlines only */
 
   .face, .back {
     position: absolute; inset: 0;
@@ -148,7 +174,8 @@
     box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.2);
   }
   .card.up .back, .card:not(.up) .face { display: none; }
-  .face { background: var(--card); border: 1px solid var(--card-edge); }
+  .card.buried .face, .card.buried .back { box-shadow: none; } /* deep in a pile: no stacked shadows */
+  .face { background: var(--card); border: 1px solid var(--card-edge); overflow: hidden; }
   .face.red { color: var(--red); }
   .face.black { color: var(--black); }
   .card.dragging .face { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.25), 0 14px 28px rgba(0, 0, 0, 0.3); }
@@ -161,15 +188,27 @@
     display: grid; justify-items: center;
     font: 700 calc(var(--cw) * 0.23) / 0.95 var(--font-display);
   }
-  .idx span { font-family: var(--font-ui); font-size: 0.78em; line-height: 1.1; }
+  .idx.wide { font-size: calc(var(--cw) * 0.2); letter-spacing: -0.08em; left: 4%; }
+  .idx span { font-family: var(--font-ui); font-size: 0.78em; line-height: 1.1; letter-spacing: 0; }
   .idx.br { top: auto; left: auto; bottom: 5%; right: 7%; transform: rotate(180deg); }
-  .pips {
-    position: absolute; inset: 17% 26%;
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-    font-size: calc(var(--cw) * 0.25); line-height: 1;
+  .idx.br.wide { right: 4%; }
+
+  /* Pips sit on a grid inside this box: x 0/50/100%, y 0-100%. */
+  .pips { position: absolute; inset: 18% 30%; font-size: calc(var(--cw) * 0.2); line-height: 1; }
+  .pips.n1 { font-size: calc(var(--cw) * 0.5); }
+  .pips.n2, .pips.n3 { font-size: calc(var(--cw) * 0.25); }
+  .pip { position: absolute; transform: translate(-50%, -50%); }
+  .pip.flip { transform: translate(-50%, -50%) rotate(180deg); }
+
+  .court {
+    position: absolute; inset: 20% 22%;
+    display: grid; place-content: center; justify-items: center;
+    border: 1px solid currentColor;
+    border-radius: calc(var(--cw) * 0.04);
+    background: color-mix(in srgb, currentColor 7%, transparent);
+    font: 700 calc(var(--cw) * 0.38) / 1 var(--font-display);
   }
-  .pips.n1 { justify-content: center; font-size: calc(var(--cw) * 0.5); }
-  .pips.n2 .pip:last-child, .pips.n3 .pip:last-child { transform: rotate(180deg); }
+  .court span { font-family: var(--font-ui); font-size: 0.5em; line-height: 1.2; }
 
   .back {
     border: calc(var(--cw) * 0.06) solid var(--card);
@@ -195,7 +234,7 @@
     display: grid; place-items: center;
     background: color-mix(in srgb, var(--felt-deep) 72%, transparent);
     border-radius: 12px;
-    z-index: 2000;
+    z-index: 5000;
   }
   .win-card {
     background: var(--card);
@@ -208,6 +247,9 @@
   }
   .win-card h2 { margin: 0; font: 700 1.8rem/1.1 var(--font-display); }
   .win-card p { margin: 0; font-variant-numeric: tabular-nums; }
+  .win-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+  .win-card .btn:not(.solid) { color: var(--black); border-color: var(--card-edge); }
+  .win-card .btn:not(.solid):hover { background: color-mix(in srgb, var(--black) 7%, transparent); }
   .btn.solid { background: var(--back); color: var(--card); border-color: var(--back); }
   .btn.solid:hover { background: var(--back-line); }
 
@@ -233,23 +275,35 @@
 <main class="app">
   <header class="top">
     <div class="brand">
-      <h1>Six-Card Solitaire</h1>
-      <p>Draw three &middot; Empty columns take a 3</p>
+      <h1><i class="var">n</i>-Card Solitaire</h1>
+      <p id="ruleLine">6 cards &middot; Draw three &middot; Empty columns take a 3</p>
     </div>
     <div class="toolbar">
       <span class="moves">Moves <b id="moveCount">0</b></span>
-      <button class="btn" id="undoBtn" type="button" disabled>Undo</button>
+      <button class="btn" id="undoBtn" type="button" disabled>Undo move</button>
+      <button class="btn" id="restartBtn" type="button" disabled>Restart game</button>
       <button class="btn" id="newBtn" type="button">New game</button>
     </div>
   </header>
+
+  <form class="settings" id="settingsForm" aria-label="Game settings">
+    <label class="field"><span>Highest card</span><select id="highestSel"></select></label>
+    <label class="field"><span>Columns</span><select id="columnsSel"></select></label>
+    <label class="field"><span>Suits</span><select id="suitsSel"></select></label>
+    <p class="hint" id="settingsHint"></p>
+  </form>
 
   <div class="table-wrap">
     <section class="board" id="board" aria-label="Card table"></section>
     <div class="win" id="winPanel" hidden>
       <div class="win-card" role="dialog" aria-labelledby="winTitle">
-        <h2 id="winTitle">Solved</h2>
+        <h2 id="winTitle">You won</h2>
         <p id="winText">In 0 moves.</p>
-        <button class="btn solid" id="againBtn" type="button">Deal again</button>
+        <div class="win-actions">
+          <button class="btn solid" id="newDealBtn" type="button">New deal</button>
+          <button class="btn" id="sameDealBtn" type="button">Same deal</button>
+          <button class="btn" id="quitBtn" type="button">Quit</button>
+        </div>
       </div>
     </div>
   </div>
@@ -259,12 +313,16 @@
   <details class="howto" id="howto">
     <summary>How to play</summary>
     <ul>
-      <li><b>Goal:</b> build each suit from Ace up to 3 on the two foundations at the top right.</li>
-      <li><b>Stock:</b> the first three cards are turned over when the game is dealt. Click the stock to turn the waste back over, then click again to turn three. Only the top card of the waste can be played. There is no limit on passes.</li>
-      <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only a 3.</li>
+      <li><b>Goal:</b> build each suit from Ace up to the highest card on the foundations at the top right.</li>
+      <li><b>Deal:</b> the columns get 1, 2, 3… cards with only the last one face up, and the first three stock cards are turned over so a card is playable right away.</li>
+      <li><b>Stock:</b> click it to turn over three more cards, or to turn the waste back over when it runs out. Only the top card of the waste can be played. There is no limit on passes.</li>
+      <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only the highest card, or a run that starts with it.</li>
       <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to the leftmost column that takes it, otherwise to its foundation. Cards on top of a clicked column card move with it. A clicked Ace always goes straight to a foundation.</li>
+      <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
       <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
-      <li>Once every card is face up, the game finishes itself.</li>
+      <li>Once every card is face up, the game finishes itself. When you win, choose <b>New deal</b>, <b>Same deal</b> to replay it, or <b>Quit</b> to clear the table.</li>
+      <li><b>Settings:</b> the highest card (2 to K), the number of columns (2 to 4) and suits (2 or 4). Changing a setting deals a new game. Column counts that would leave no cards for the stock are unavailable.</li>
+      <li><b>Undo move</b> takes back one move. <b>Restart game</b> starts the same deal over from the beginning. <b>New game</b> shuffles a new deal.</li>
       <li><b>Keyboard:</b> Tab to a card and press Enter to play it. Ctrl+Z undoes a move.</li>
     </ul>
   </details>
@@ -279,27 +337,103 @@
   const moveCountEl = document.getElementById('moveCount');
   const undoBtn = document.getElementById('undoBtn');
   const newBtn = document.getElementById('newBtn');
+  const restartBtn = document.getElementById('restartBtn');
   const statusEl = document.getElementById('status');
   const winPanel = document.getElementById('winPanel');
   const winText = document.getElementById('winText');
-  const againBtn = document.getElementById('againBtn');
+  const newDealBtn = document.getElementById('newDealBtn');
+  const sameDealBtn = document.getElementById('sameDealBtn');
+  const quitBtn = document.getElementById('quitBtn');
+  const ruleLine = document.getElementById('ruleLine');
+  const highestSel = document.getElementById('highestSel');
+  const columnsSel = document.getElementById('columnsSel');
+  const suitsSel = document.getElementById('suitsSel');
+  const settingsHint = document.getElementById('settingsHint');
 
-  const AUTO_STEP_MS = 230;
+  const AUTO_STEP_MS = 180;
   const DRAG_THRESHOLD = 5;
+  const SETTINGS_KEY = 'solitaire-study.settings';
+  const Z = { stock: 100, waste: 200, foundation: 300, tableau: 400, moving: 1000, dragging: 3000 };
 
+  // Pip positions inside the .pips box, as [x%, y%]; pips below the middle are drawn upside down.
+  const PIPS = {
+    1: [[50, 50]],
+    2: [[50, 0], [50, 100]],
+    3: [[50, 0], [50, 50], [50, 100]],
+    4: [[0, 0], [100, 0], [0, 100], [100, 100]],
+    5: [[0, 0], [100, 0], [50, 50], [0, 100], [100, 100]],
+    6: [[0, 0], [100, 0], [0, 50], [100, 50], [0, 100], [100, 100]],
+    7: [[0, 0], [100, 0], [50, 25], [0, 50], [100, 50], [0, 100], [100, 100]],
+    8: [[0, 0], [100, 0], [50, 25], [0, 50], [100, 50], [50, 75], [0, 100], [100, 100]],
+    9: [[0, 0], [100, 0], [0, 33], [100, 33], [50, 50], [0, 67], [100, 67], [0, 100], [100, 100]],
+    10: [[0, 0], [100, 0], [50, 17], [0, 33], [100, 33], [0, 67], [100, 67], [50, 83], [0, 100], [100, 100]],
+  };
+
+  let settings = loadSettings();
   let state = null;
+  let initialState = null;   // the deal as it started, for Restart game
   let history = [];
   let moves = 0;
   let busy = false;          // true while the automatic finish runs
+  let closed = false;        // true after Quit: the table shows outlines only
   let suppressAuto = false;  // set by Undo so the finish doesn't immediately replay
   let L = null;              // layout metrics
   let drag = null;
 
   const top = (pile) => pile[pile.length - 1];
+  const rankLabel = (rank) => G.RANK_LABEL[rank];
+  const withArticle = (rank) => (rank === 8 ? 'an ' : 'a ') + rankLabel(rank);
 
-  /* ---------- build the table once ---------- */
+  /* ---------- settings ---------- */
 
-  const slots = {};
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(SETTINGS_KEY);
+      if (raw) return G.normalizeSettings(JSON.parse(raw));
+    } catch (e) { /* storage unavailable */ }
+    return G.normalizeSettings(G.DEFAULT_SETTINGS);
+  }
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* ignore */ }
+  }
+
+  function fillSelect(sel, values, text) {
+    sel.innerHTML = values.map((v) => `<option value="${v}">${text(v)}</option>`).join('');
+  }
+  fillSelect(highestSel, G.HIGHEST_CHOICES, rankLabel);
+  fillSelect(columnsSel, G.COLUMN_CHOICES, String);
+  fillSelect(suitsSel, G.SUIT_CHOICES, (n) => (n === 2 ? '2 (♠︎ ♦︎)' : '4 (♠︎ ♥︎ ♣︎ ♦︎)'));
+
+  function syncSettingsUI() {
+    highestSel.value = settings.highest;
+    suitsSel.value = settings.suits;
+    const allowed = G.allowedColumns(settings.highest, settings.suits);
+    for (const opt of columnsSel.options) opt.disabled = !allowed.includes(Number(opt.value));
+    columnsSel.value = settings.columns;
+    const blocked = G.COLUMN_CHOICES.filter((c) => !allowed.includes(c));
+    settingsHint.textContent = blocked.length
+      ? blocked.map((c) => `${c} columns needs a highest card of ${rankLabel(G.minHighestFor(c, settings.suits))} or more`).join('; ') + '.'
+      : '';
+    const n = settings.highest * settings.suits;
+    ruleLine.textContent = `${n} cards · Draw three · Empty columns take ${withArticle(settings.highest)}`;
+  }
+
+  function onSettingsChange() {
+    if (busy) { syncSettingsUI(); return; }
+    const wanted = Number(columnsSel.value);
+    settings = G.normalizeSettings({ highest: highestSel.value, columns: wanted, suits: suitsSel.value });
+    saveSettings();
+    syncSettingsUI();
+    newGame();
+    const note = settings.columns !== wanted ? ` ${wanted} columns needs a higher card, so this deal uses ${settings.columns}.` : '';
+    say(`New deal: ${settings.highest * settings.suits} cards, ${settings.columns} columns.${note}`);
+  }
+  [highestSel, columnsSel, suitsSel].forEach((sel) => sel.addEventListener('change', onSettingsChange));
+  document.getElementById('settingsForm').addEventListener('submit', (e) => e.preventDefault());
+
+  /* ---------- table pieces (rebuilt when the deck or column count changes) ---------- */
+
+  const slots = { tab: [], found: [] };
   function makeSlot(cls, html, tag = 'div') {
     const el = document.createElement(tag);
     el.className = 'slot ' + cls;
@@ -312,52 +446,87 @@
     'button');
   slots.stock.type = 'button';
   slots.waste = makeSlot('waste', '');
-  slots.found = [makeSlot('foundation', 'A'), makeSlot('foundation', 'A')];
-  slots.tab = [makeSlot('column', '3'), makeSlot('column', '3')];
-  slots.found.forEach((el, i) => el.setAttribute('aria-label', `Foundation ${i + 1}`));
-  slots.tab.forEach((el, i) => el.setAttribute('aria-label', `Column ${i + 1}`));
 
+  let builtKey = '';
   const cardEls = new Map();
-  for (const c of G.makeDeck()) {
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.dataset.id = c.id;
+  const basePos = new Map();
+  const lastWhere = new Map();
+
+  function faceHTML(c) {
     const sym = G.SUIT_SYMBOL[c.suit];
-    const rank = G.RANK_LABEL[c.rank];
-    const pips = Array.from({ length: c.rank }, () => `<span class="pip">${sym}</span>`).join('');
-    el.innerHTML =
-      `<div class="face ${G.isRed(c) ? 'red' : 'black'}" aria-hidden="true">` +
-      `<span class="idx">${rank}<span>${sym}</span></span>` +
-      `<span class="pips n${c.rank}">${pips}</span>` +
-      `<span class="idx br">${rank}<span>${sym}</span></span>` +
+    const rank = rankLabel(c.rank);
+    const wide = rank.length > 1 ? ' wide' : '';
+    const center = c.rank > 10
+      ? `<span class="court">${rank}<span>${sym}</span></span>`
+      : `<span class="pips n${c.rank}">` +
+        PIPS[c.rank].map(([x, y]) => `<span class="pip${y > 50 ? ' flip' : ''}" style="left:${x}%;top:${y}%">${sym}</span>`).join('') +
+        '</span>';
+    return `<div class="face ${G.isRed(c) ? 'red' : 'black'}" aria-hidden="true">` +
+      `<span class="idx${wide}">${rank}<span>${sym}</span></span>${center}` +
+      `<span class="idx br${wide}">${rank}<span>${sym}</span></span>` +
       `</div><div class="back" aria-hidden="true"></div>`;
-    board.appendChild(el);
-    cardEls.set(c.id, el);
+  }
+
+  /** Make sure the card elements and pile outlines match the current game. */
+  function buildTable() {
+    const highest = G.highestOf(state);
+    const key = `${highest}/${state.foundations.length}/${state.tableau.length}`;
+    if (key === builtKey) return;
+    builtKey = key;
+
+    for (const el of cardEls.values()) el.remove();
+    cardEls.clear(); basePos.clear(); lastWhere.clear();
+    [...slots.tab, ...slots.found].forEach((el) => el.remove());
+
+    slots.found = state.foundations.map((_, i) => {
+      const el = makeSlot('foundation', 'A');
+      el.setAttribute('aria-label', `Foundation ${i + 1}`);
+      return el;
+    });
+    slots.tab = state.tableau.map((_, i) => {
+      const el = makeSlot('column', rankLabel(highest));
+      el.setAttribute('aria-label', `Column ${i + 1}`);
+      return el;
+    });
+    for (const c of G.makeDeck(highest, state.foundations.length)) {
+      const el = document.createElement('div');
+      el.className = 'card';
+      el.dataset.id = c.id;
+      el.innerHTML = faceHTML(c);
+      board.appendChild(el);
+      cardEls.set(c.id, el);
+    }
+    computeLayout();
   }
 
   /* ---------- layout ---------- */
 
   function computeLayout() {
     const W = board.clientWidth;
-    const cw = Math.max(44, Math.min(96, Math.floor(W / 6.05)));
+    const nFound = state.foundations.length;
+    const nCols = state.tableau.length;
+    // Top row: stock, waste fan (1.6 cards wide), then the foundations.
+    const cw = Math.max(40, Math.min(96, Math.floor(W / (nFound + 4.05))));
     const ch = Math.round(cw * 1.4);
     const gap = Math.round(cw * 0.16);
     const fanDx = Math.round(cw * 0.3);
-    const downDy = Math.round(ch * 0.12);
-    const upDy = Math.round(ch * 0.25);
+    const colGap = Math.round(cw * 0.35);
     const tabY = ch + Math.round(cw * 0.4);
-    const mid = W / 2;
+    const rowW = nCols * cw + (nCols - 1) * colGap;
+    const x0 = Math.round((W - rowW) / 2);
     L = {
-      W, cw, ch, gap, fanDx, downDy, upDy,
+      W, cw, ch, gap, fanDx,
+      downDy: Math.round(ch * 0.12),
+      upDy: Math.round(ch * 0.25),
+      tabY,
       stock: { x: 0, y: 0 },
       waste: { x: cw + gap, y: 0 },
-      found: [{ x: W - 2 * cw - gap, y: 0 }, { x: W - cw, y: 0 }],
-      tab: [{ x: Math.round(mid - cw - gap * 1.5), y: tabY }, { x: Math.round(mid + gap * 1.5), y: tabY }],
-      height: tabY + ch + 3 * upDy + 8,
+      found: Array.from({ length: nFound }, (_, i) => ({ x: W - (nFound - i) * cw - (nFound - 1 - i) * gap, y: 0 })),
+      tab: Array.from({ length: nCols }, (_, i) => ({ x: x0 + i * (cw + colGap), y: tabY })),
+      height: 0,
     };
     board.style.setProperty('--cw', cw + 'px');
     board.style.setProperty('--ch', ch + 'px');
-    board.style.height = L.height + 'px';
     place(slots.stock, L.stock);
     place(slots.waste, L.waste);
     slots.found.forEach((el, i) => place(el, L.found[i]));
@@ -367,37 +536,42 @@
 
   /* ---------- render ---------- */
 
-  const basePos = new Map();
-  const lastWhere = new Map();
-
   function render() {
+    buildTable();
     const items = [];
-    state.stock.forEach((c, i) =>
-      items.push({ c, x: L.stock.x + i, y: L.stock.y - i, z: 10 + i, where: 'stock' }));
+    state.stock.forEach((c, i) => {
+      const d = Math.min(i, 3); // a little thickness, capped
+      items.push({ c, x: L.stock.x + d, y: L.stock.y - d, z: Z.stock + i, where: 'stock', buried: i < state.stock.length - 3 });
+    });
     const fanStart = state.waste.length - state.wasteFan;
     state.waste.forEach((c, i) =>
       items.push({
-        c, x: L.waste.x + Math.max(0, i - fanStart) * L.fanDx, y: L.waste.y, z: 20 + i, where: 'waste',
+        c, x: L.waste.x + Math.max(0, i - fanStart) * L.fanDx, y: L.waste.y, z: Z.waste + i, where: 'waste', buried: i < fanStart - 1,
         grab: i === state.waste.length - 1, playable: i === state.waste.length - 1,
       }));
     state.foundations.forEach((pile, f) => pile.forEach((c, i) =>
-      items.push({ c, x: L.found[f].x, y: L.found[f].y, z: 30 + i, where: 'f' + f, grab: i === pile.length - 1 })));
+      items.push({ c, x: L.found[f].x, y: L.found[f].y, z: Z.foundation + i, where: 'f' + f, grab: i === pile.length - 1, buried: i < pile.length - 2 })));
+    let bottom = L.tabY + L.ch + 3 * L.upDy;
     state.tableau.forEach((col, t) => {
       let y = L.tab[t].y;
       col.forEach((c, i) => {
         items.push({
-          c, x: L.tab[t].x, y, z: 40 + i, where: 't' + t,
+          c, x: L.tab[t].x, y, z: Z.tableau + i, where: 't' + t,
           grab: !!G.pickUp(state, { pile: 'tableau', index: t, cardIndex: i }),
         });
+        bottom = Math.max(bottom, y + L.ch);
         y += c.faceUp ? L.upDy : L.downDy;
       });
     });
+    L.height = bottom + 8;
+    board.style.height = L.height + 'px';
 
     for (const it of items) {
       const el = cardEls.get(it.c.id);
       el.classList.toggle('up', it.c.faceUp);
       el.classList.toggle('grab', !!it.grab && !busy);
       el.classList.toggle('playable', !!it.playable);
+      el.classList.toggle('buried', !!it.buried);
       el.classList.remove('dragging');
       el.style.transform = `translate(${it.x}px, ${it.y}px)`;
       basePos.set(it.c.id, { x: it.x, y: it.y });
@@ -405,7 +579,7 @@
       const prev = lastWhere.get(it.c.id);
       clearTimeout(el._zTimer);
       if (prev && prev !== it.where) {
-        el.style.zIndex = 500 + it.z;
+        el.style.zIndex = Z.moving + it.z;
         el._zTimer = setTimeout(() => { el.style.zIndex = it.z; }, 260);
       } else {
         el.style.zIndex = it.z;
@@ -416,14 +590,17 @@
       el.setAttribute('aria-label', it.c.faceUp ? G.spokenName(it.c) : 'Face-down card');
     }
 
-    const canRecycle = !state.stock.length && state.waste.length > 0;
+    board.classList.toggle('closed', closed);
+    if (closed) for (const el of cardEls.values()) el.tabIndex = -1;
+    const canRecycle = !closed && !state.stock.length && state.waste.length > 0;
     slots.stock.classList.toggle('can-recycle', canRecycle);
-    slots.stock.disabled = busy || (!state.stock.length && !state.waste.length);
+    slots.stock.disabled = closed || busy || (!state.stock.length && !state.waste.length);
     slots.stock.setAttribute('aria-label',
       state.stock.length ? `Draw ${Math.min(G.DRAW_COUNT, state.stock.length)} cards` : 'Turn the waste back over');
 
     moveCountEl.textContent = moves;
-    undoBtn.disabled = busy || !history.length;
+    undoBtn.disabled = closed || busy || !history.length;
+    restartBtn.disabled = busy || (!closed && !history.length);
   }
 
   function say(msg) { statusEl.textContent = msg || ''; }
@@ -466,15 +643,18 @@
     commit(next, state.stock.length ? '' : 'Waste turned back over.');
   }
 
-  // Click rule for the top waste card and any face-up column card (with the
-  // cards on top of it): leftmost column that takes it, otherwise its foundation.
+  // Click rules (see G.clickTarget): the top waste card and face-up column cards
+  // (with the cards on top of them) go to the leftmost column that takes them,
+  // otherwise their foundation, and an Ace always goes to a foundation. A
+  // foundation's top card comes back down to the leftmost column that takes it.
   function playByClick(from) {
-    if (from.pile !== 'waste' && from.pile !== 'tableau') return;
+    if (closed || !['waste', 'tableau', 'foundation'].includes(from.pile)) return;
     const cards = G.pickUp(state, from);
     if (!cards) return;
     const to = G.clickTarget(state, from);
     if (to && tryMove(from, to)) return;
     shake(cards[0].id);
+    if (from.pile === 'foundation') return say(`No column can take the ${G.label(cards[0])} right now.`);
     say(cards.length > 1
       ? `The ${G.label(cards[0])} and the cards on it have nowhere to go yet.`
       : `The ${G.label(cards[0])} has nowhere to go yet.`);
@@ -501,22 +681,48 @@
     say('');
     winText.textContent = `In ${moves} ${moves === 1 ? 'move' : 'moves'}.`;
     winPanel.hidden = false;
-    againBtn.focus({ preventScroll: true });
+    newDealBtn.focus({ preventScroll: true });
   }
 
   function newGame() {
     if (busy) return;
-    state = G.newGame();
+    state = G.newGame(Math.random, settings);
+    initialState = state;
     history = [];
     moves = 0;
     suppressAuto = false;
+    closed = false;
     winPanel.hidden = true;
     say('');
     render();
   }
 
+  // Same shuffle, back to the opening deal.
+  function restartGame() {
+    if (busy || !initialState) return;
+    state = initialState;
+    history = [];
+    moves = 0;
+    suppressAuto = false;
+    closed = false;
+    winPanel.hidden = true;
+    say('Game restarted with the same deal.');
+    render();
+  }
+
+  // Clear the table, leaving the pile outlines. New game or Restart game deals again.
+  function quitGame() {
+    if (busy) return;
+    closed = true;
+    history = [];
+    moves = 0;
+    winPanel.hidden = true;
+    say('Table cleared. Choose New game for a new deal, or Restart game to replay this one.');
+    render();
+  }
+
   function undo() {
-    if (busy || !history.length) return;
+    if (closed || busy || !history.length) return;
     const prev = history.pop();
     state = prev.state;
     moves = prev.moves;
@@ -526,7 +732,7 @@
     render();
   }
 
-  /* ---------- pointer: tap, double-tap, drag ---------- */
+  /* ---------- pointer: tap and drag ---------- */
 
   function overlap(a, b) {
     const w = Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x);
@@ -558,7 +764,7 @@
     if (!cards) return;
     e.preventDefault();
     el.setPointerCapture(e.pointerId);
-    drag = { from, ids: cards.map((c) => c.id), x0: e.clientX, y0: e.clientY, moved: false, pointerId: e.pointerId, id: el.dataset.id };
+    drag = { from, ids: cards.map((c) => c.id), x0: e.clientX, y0: e.clientY, moved: false, pointerId: e.pointerId };
   });
 
   board.addEventListener('pointermove', (e) => {
@@ -573,7 +779,7 @@
       const el = cardEls.get(id);
       const p = basePos.get(id);
       el.classList.add('dragging');
-      el.style.zIndex = 1000 + i;
+      el.style.zIndex = Z.dragging + i;
       el.style.transform = `translate(${p.x + dx}px, ${p.y + dy}px)`;
     });
   });
@@ -593,7 +799,10 @@
 
   slots.stock.addEventListener('click', drawFromStock);
   newBtn.addEventListener('click', newGame);
-  againBtn.addEventListener('click', newGame);
+  restartBtn.addEventListener('click', restartGame);
+  newDealBtn.addEventListener('click', newGame);
+  sameDealBtn.addEventListener('click', restartGame);
+  quitBtn.addEventListener('click', quitGame);
   undoBtn.addEventListener('click', undo);
 
   board.addEventListener('keydown', (e) => {
@@ -623,15 +832,21 @@
 
   function start(saved) {
     board.classList.add('no-anim');
-    computeLayout();
     if (saved && saved.state && Array.isArray(saved.history)) {
       state = saved.state;
       history = saved.history;
+      initialState = saved.initialState || (history.length ? history[0].state : state);
+      closed = !!saved.closed;
       moves = saved.moves || 0;
+      settings = G.normalizeSettings(saved.settings || {
+        highest: G.highestOf(state), columns: state.tableau.length, suits: state.foundations.length,
+      });
       suppressAuto = true;
+      syncSettingsUI();
       render();
-      if (G.isWon(state)) showWin();
+      if (G.isWon(state) && !closed) showWin();
     } else {
+      syncSettingsUI();
       newGame();
     }
     requestAnimationFrame(() => board.classList.remove('no-anim'));
@@ -639,7 +854,7 @@
 
   // Keep the game in progress when the page is updated while open on claude.ai.
   const hot = window.claude && window.claude.hot;
-  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ state, history, moves }));
+  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ state, history, moves, settings, initialState, closed }));
   if (hot && typeof hot.ready === 'function') hot.ready(start);
   else start((hot && hot.data) || {});
 })();

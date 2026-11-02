@@ -233,10 +233,42 @@ test('ace click: a column Ace goes to a foundation even when the other column co
   assert.equal(next.tableau[1][0].faceUp, true);
 });
 
-test('clicking a foundation or stock card has no target', () => {
-  const s = blank({ foundations: [[C('AS')], []], stock: [C('2D', false)] });
-  assert.equal(G.clickTarget(s, { pile: 'foundation', index: 0 }), null);
+test('clicking a stock card has no target', () => {
+  const s = blank({ stock: [C('2D', false)] });
   assert.equal(G.clickTarget(s, { pile: 'stock', index: 0 }), null);
+});
+
+/* ---------- click rules: foundation cards ---------- */
+
+const F = (index) => ({ pile: 'foundation', index });
+
+test('foundation click: the top card goes to the leftmost column that takes it', () => {
+  // Both columns show a red 3, so both can take the 2♠.
+  const s = blank({ tableau: [[C('3D')], [C('3D')]], foundations: [[C('AS'), C('2S')], []] });
+  assert.deepEqual(G.clickTarget(s, F(0)), { pile: 'tableau', index: 0 });
+  const onlyRight = blank({ tableau: [[C('3S')], [C('3D')]], foundations: [[C('AS'), C('2S')], []] });
+  assert.deepEqual(G.clickTarget(onlyRight, F(0)), { pile: 'tableau', index: 1 });
+  const next = G.move(onlyRight, F(0), G.clickTarget(onlyRight, F(0)));
+  assert.deepEqual(ids(next.tableau[1]), ['3D', '2S']);
+  assert.deepEqual(ids(next.foundations[0]), ['AS']);
+});
+
+test('foundation click: an Ace can come down onto a 2, but never hops to another foundation', () => {
+  const s = blank({ tableau: [[C('2S')], []], foundations: [[C('AD')], []] });
+  assert.deepEqual(G.clickTarget(s, F(0)), { pile: 'tableau', index: 0 });
+  const noColumn = blank({ tableau: [[C('2D')], []], foundations: [[C('AD')], []] });
+  assert.equal(G.clickTarget(noColumn, F(0)), null);
+});
+
+test('foundation click: the highest card can go to an empty column', () => {
+  const s = blank({ tableau: [[C('AD', false)], []], foundations: [[C('AS'), C('2S'), C('3S')], []] });
+  assert.deepEqual(G.clickTarget(s, F(0)), { pile: 'tableau', index: 1 });
+});
+
+test('foundation click: null when no column takes the card, or the foundation is empty', () => {
+  const s = blank({ tableau: [[C('3S')], [C('AD')]], foundations: [[C('AS'), C('2S')], []] });
+  assert.equal(G.clickTarget(s, F(0)), null);
+  assert.equal(G.clickTarget(s, F(1)), null);
 });
 
 /* ---------- full game ---------- */
@@ -269,4 +301,102 @@ test('illegal moves return null', () => {
   assert.equal(G.move(s, T(0), T(0)), null);                              // same pile
   assert.equal(G.move(s, WASTE, { pile: 'foundation', index: 0 }), null); // 3♠ onto an empty foundation
   assert.equal(G.move(blank(), WASTE, T(0)), null);                       // empty waste
+});
+
+/* ---------- settings: highest card, columns, suits ---------- */
+
+test('deck size follows the highest card and the number of suits', () => {
+  assert.equal(G.makeDeck(13, 2).length, 26);
+  assert.equal(G.makeDeck(13, 4).length, 52);
+  assert.equal(G.makeDeck(2, 2).length, 4);
+  assert.deepEqual(ids(G.makeDeck(2, 4)), ['AS', '2S', 'AH', '2H', 'AC', '2C', 'AD', '2D']);
+  assert.ok(G.makeDeck(13, 2).some((c) => c.id === '10S'));
+});
+
+test('hearts are red and clubs are black', () => {
+  assert.equal(G.isRed(C('2H')), true);
+  assert.equal(G.isRed(C('2C')), false);
+  const s = blank({ tableau: [[C('3C')], [C('3H')]] });
+  assert.equal(G.canPlaceOnTableau(s, [C('2H')], 0), true);
+  assert.equal(G.canPlaceOnTableau(s, [C('2D')], 1), false);
+});
+
+test('staircase deal: 4 columns of 1-4 cards, one face up on each, and three turned to the waste', () => {
+  const s = G.newGame(Math.random, { highest: 13, columns: 4, suits: 2 });
+  assert.deepEqual(s.tableau.map((col) => col.length), [1, 2, 3, 4]);
+  for (const col of s.tableau) {
+    assert.deepEqual(col.map((c) => c.faceUp), col.map((_, i) => i === col.length - 1));
+  }
+  assert.equal(s.waste.length, 3);
+  assert.equal(s.stock.length, 26 - 10 - 3);
+  assert.equal(s.foundations.length, 2);
+  assert.equal(s.highest, 13);
+});
+
+test('four suits give four foundations', () => {
+  const s = G.newGame(Math.random, { highest: 5, columns: 3, suits: 4 });
+  assert.equal(s.foundations.length, 4);
+  assert.equal(s.stock.length + s.waste.length + s.tableau.flat().length, 20);
+});
+
+test('an empty column accepts the highest card, whatever it is', () => {
+  const kings = blank({ highest: 13 });
+  assert.equal(G.canPlaceOnTableau(kings, [C('3S')], 0), false);
+  assert.equal(G.canPlaceOnTableau(kings, [{ id: 'KS', rank: 13, suit: 'S', faceUp: true }], 0), true);
+  const twos = blank({ highest: 2 });
+  assert.equal(G.canPlaceOnTableau(twos, [C('2D'), C('AS')], 0), true);
+});
+
+test('a foundation is complete at the highest card', () => {
+  const s = blank({ highest: 2, foundations: [[C('AS'), C('2S')], [C('AD'), C('2D')]] });
+  assert.equal(G.isWon(s), true);
+  assert.equal(G.isWon({ ...s, highest: 3 }), false);
+});
+
+test('column counts that would leave no stock are not allowed', () => {
+  assert.deepEqual(G.allowedColumns(2, 2), [2]);
+  assert.deepEqual(G.allowedColumns(3, 2), [2]);       // 3 columns would use all 6 cards
+  assert.deepEqual(G.allowedColumns(4, 2), [2, 3]);
+  assert.deepEqual(G.allowedColumns(6, 2), [2, 3, 4]);
+  assert.deepEqual(G.allowedColumns(2, 4), [2, 3]);
+  assert.deepEqual(G.allowedColumns(3, 4), [2, 3, 4]);
+  assert.equal(G.minHighestFor(3, 2), 4);
+  assert.equal(G.minHighestFor(4, 2), 6);
+  assert.equal(G.minHighestFor(4, 4), 3);
+});
+
+test('settings are cleaned up: bad values use defaults, too many columns drop to what fits', () => {
+  assert.deepEqual(G.normalizeSettings({}), { highest: 3, columns: 2, suits: 2 });
+  assert.deepEqual(G.normalizeSettings({ highest: 99, columns: 9, suits: 3 }), { highest: 3, columns: 2, suits: 2 });
+  assert.deepEqual(G.normalizeSettings({ highest: 5, columns: 4, suits: 2 }), { highest: 5, columns: 3, suits: 2 });
+  assert.deepEqual(G.normalizeSettings({ highest: '13', columns: '4', suits: '4' }), { highest: 13, columns: 4, suits: 4 });
+});
+
+test('every allowed setting deals a full, consistent game', () => {
+  for (const suits of G.SUIT_CHOICES) {
+    for (const highest of G.HIGHEST_CHOICES) {
+      for (const columns of G.allowedColumns(highest, suits)) {
+        const s = G.newGame(Math.random, { highest, columns, suits });
+        const all = [...s.stock, ...s.waste, ...s.tableau.flat()];
+        assert.equal(new Set(ids(all)).size, highest * suits, `${highest}/${columns}/${suits}`);
+        assert.equal(s.tableau.length, columns);
+        assert.ok(s.waste.length >= 1, 'a waste card is playable at the start');
+      }
+    }
+  }
+});
+
+test('auto-finish always completes a big all-face-up game', () => {
+  // Kings, two suits: each column holds an alternating run; nothing hidden.
+  const run = (suits) => suits.map((suit, i) => ({ id: `${13 - i}${suit}`, rank: 13 - i, suit, faceUp: true }));
+  const alt = (a, b) => Array.from({ length: 13 }, (_, i) => (i % 2 ? b : a));
+  let s = blank({ highest: 13, tableau: [run(alt('S', 'D')), run(alt('D', 'S'))] });
+  assert.equal(G.canAutoFinish(s), true);
+  let guard = 0;
+  while (!G.isWon(s) && guard++ < 100) {
+    const m = G.nextAutoFinishMove(s);
+    assert.ok(m);
+    s = G.move(s, m.from, m.to);
+  }
+  assert.equal(G.isWon(s), true);
 });

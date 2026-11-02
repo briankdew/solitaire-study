@@ -1,7 +1,7 @@
 {
   "name": "solitaire-study",
   "version": "1.0.0",
-  "description": "Six-card, draw-three solitaire with the A, 2 and 3 of spades and diamonds.",
+  "description": "n-Card Solitaire: a draw-three Klondike for learning solitaire, with any deck from 4 to 52 cards.",
   "private": true,
   "scripts": {
     "test": "node --test",
