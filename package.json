@@ -1,0 +1,13 @@
+{
+  "name": "solitaire-study",
+  "version": "1.0.0",
+  "description": "Six-card, draw-three solitaire with the A, 2 and 3 of spades and diamonds.",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "start": "python3 -m http.server 8000"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
