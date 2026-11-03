@@ -125,6 +125,10 @@
     cursor: pointer;
   }
   .field select option { color: var(--black); background: var(--card); }
+  .toggle { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+  .toggle span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
+  .toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--brass); cursor: pointer; }
+  .toggle input:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
   .hint { flex: 1 1 14em; min-width: 0; margin: 0; font-size: 0.8rem; color: var(--ink-muted); align-self: center; }
 
   /* ---------- table ---------- */
@@ -306,6 +310,7 @@
     <label class="field"><span>Highest card</span><select id="highestSel"></select></label>
     <label class="field"><span>Columns</span><select id="columnsSel"></select></label>
     <label class="field"><span>Suits</span><select id="suitsSel"></select></label>
+    <label class="toggle"><input type="checkbox" id="autoFinishChk" checked><span>Auto-complete</span></label>
     <p class="hint" id="settingsHint"></p>
   </form>
 
@@ -348,7 +353,7 @@
       <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to the leftmost column that takes it, otherwise to its foundation. Cards on top of a clicked column card move with it. A clicked Ace always goes straight to a foundation.</li>
       <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
       <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
-      <li>Once every card is face up, the game finishes itself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
+      <li>Once every card is face up, the game finishes itself, unless <b>Auto-complete</b> is turned off; then you play every card yourself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
       <li><b>Settings:</b> the highest card (2 to K), the number of columns (2 to 4) and suits (2 or 4). Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. Column counts that would leave no cards for the stock are unavailable.</li>
       <li><b>Moves</b> count cards played to a column or foundation. Turning the stock doesn't count.</li>
       <li><b>Undo move</b> takes back one action, including a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle.</li>
@@ -382,11 +387,13 @@
   const highestSel = document.getElementById('highestSel');
   const columnsSel = document.getElementById('columnsSel');
   const suitsSel = document.getElementById('suitsSel');
+  const autoFinishChk = document.getElementById('autoFinishChk');
   const settingsHint = document.getElementById('settingsHint');
 
   const AUTO_STEP_MS = 180;
   const DRAG_THRESHOLD = 5;
   const SETTINGS_KEY = 'solitaire-study.settings';
+  const AUTO_FINISH_KEY = 'solitaire-study.autoFinish';
   const Z = { stock: 100, waste: 200, foundation: 300, tableau: 400, moving: 1000, dragging: 3000 };
 
   // Pip positions inside the .pips box, as [x%, y%]; pips below the middle are drawn upside down.
@@ -404,6 +411,7 @@
   };
 
   let settings = loadSettings();
+  let autoFinish = loadAutoFinish(); // finish the game automatically once every card is face up
   let state = null;
   let shuffleState = null;   // the current shuffle, gathered and undealt, for Restart deal
   let history = [];
@@ -427,6 +435,19 @@
     } catch (e) { /* storage unavailable */ }
     return G.normalizeSettings(G.DEFAULT_SETTINGS);
   }
+  // Auto-complete is a preference, not a deck setting, so changing it never reshuffles.
+  function loadAutoFinish() {
+    try { return localStorage.getItem(AUTO_FINISH_KEY) !== 'off'; } catch (e) { return true; }
+  }
+  function onAutoFinishChange() {
+    autoFinish = autoFinishChk.checked;
+    try { localStorage.setItem(AUTO_FINISH_KEY, autoFinish ? 'on' : 'off'); } catch (e) { /* ignore */ }
+    if (autoFinish && inPlay() && !busy && G.canAutoFinish(state)) runAutoFinish();
+    else if (!autoFinish && busy) say('Auto-complete off. Play the rest yourself.');
+  }
+  autoFinishChk.checked = autoFinish;
+  autoFinishChk.addEventListener('change', onAutoFinishChange);
+
   function saveSettings() {
     try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* ignore */ }
   }
@@ -696,7 +717,7 @@
   function afterChange() {
     render();
     if (G.isWon(state)) return showWin();
-    if (G.canAutoFinish(state) && !suppressAuto) runAutoFinish();
+    if (autoFinish && G.canAutoFinish(state) && !suppressAuto) runAutoFinish();
   }
 
   function tryMove(from, to) {
@@ -737,7 +758,7 @@
     render();
     const step = () => {
       const m = G.nextAutoFinishMove(state);
-      if (!m) { busy = false; say(''); render(); return; }
+      if (!m || !autoFinish) { busy = false; if (!m) say(''); render(); return; }
       state = G.move(state, m.from, m.to);
       moves++;
       render();

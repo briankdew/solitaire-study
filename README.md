@@ -11,6 +11,7 @@ It's a single static web page with no build step and no dependencies.
 | Highest card | 2, 3, 4 … 10, J, Q, K | 3 |
 | Columns | 2, 3, 4 | 2 |
 | Suits | 2 (♠ ♦) or 4 (♠ ♥ ♣ ♦) | 2 |
+| Auto-complete | On or off | On |
 
 The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. A column count is unavailable if the deal would leave no cards for the stock; for example, with 2 suits, 3 columns needs a highest card of 4 or more, and 4 columns needs 6 or more.
 
@@ -43,7 +44,7 @@ The deck is every rank from Ace to the highest card in each suit, so K with 4 su
 
 The move counter counts cards played to a column or foundation; turning the stock over isn't a move.
 
-Once the stock and waste are empty and every card is face up, the game finishes itself. When you win, the panel offers **New deal** (shuffle and deal a new game), **Same deal** (deal this shuffle again) or **Quit** (stop, leaving the table as it is).
+Once the stock and waste are empty and every card is face up, the game finishes itself. Turn **Auto-complete** off to play every card yourself; switching it never reshuffles, and turning it off mid-finish stops the finish where it is. When you win, the panel offers **New deal** (shuffle and deal a new game), **Same deal** (deal this shuffle again) or **Quit** (stop, leaving the table as it is).
 
 ## Run it locally
 
