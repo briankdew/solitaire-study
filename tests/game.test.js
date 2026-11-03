@@ -69,6 +69,18 @@ test('draw returns null when stock and waste are both empty', () => {
   assert.equal(G.draw(blank()), null);
 });
 
+test('the waste always fans its top three cards', () => {
+  const waste = ['AS', '2S', '3S', 'AD', '2D'].map((id) => C(id));
+  const s = blank({ tableau: [[C('3S')], []], waste, wasteFan: 3 });
+  const played = G.move(s, WASTE, { pile: 'tableau', index: 0 }); // 2D onto 3S
+  assert.equal(played.wasteFan, 3); // 2S slides into position 1
+  assert.deepEqual(ids(played.waste.slice(-played.wasteFan)), ['2S', '3S', 'AD']);
+  // Turning one card onto a waste of four still fans three.
+  const one = G.draw(blank({ stock: [C('KS', false)], waste: waste.slice(0, 4), wasteFan: 3 }));
+  assert.equal(one.wasteFan, 3);
+  assert.deepEqual(ids(one.waste.slice(-3)), ['3S', 'AD', 'KS']);
+});
+
 test('playing from the fan reveals the next fanned card', () => {
   const a = G.move(SAMPLE(), T(0), { pile: 'foundation', index: 0 });
   const b = G.move(a, WASTE, G.wasteClickTarget(a)); // 3♠ -> empty column 1
@@ -363,6 +375,13 @@ test('column counts that would leave no stock are not allowed', () => {
   assert.equal(G.minHighestFor(3, 2), 4);
   assert.equal(G.minHighestFor(4, 2), 6);
   assert.equal(G.minHighestFor(4, 4), 3);
+  assert.deepEqual(G.allowedColumns(13, 2), [2, 3, 4, 5, 6]); // 7 columns needs 28 cards
+  assert.deepEqual(G.allowedColumns(8, 4), [2, 3, 4, 5, 6, 7]);
+  assert.deepEqual(G.allowedColumns(7, 4), [2, 3, 4, 5, 6]);
+  assert.equal(G.minHighestFor(5, 2), 8);
+  assert.equal(G.minHighestFor(6, 2), 11);
+  assert.equal(G.minHighestFor(7, 2), 15); // more than K: needs 4 suits
+  assert.equal(G.minHighestFor(7, 4), 8);
 });
 
 test('settings are cleaned up: bad values use defaults, too many columns drop to what fits', () => {
@@ -424,4 +443,19 @@ test('dealPending deals exactly the prepared shuffle', () => {
   assert.deepEqual(dealt.tableau.map((col) => col.length), [1, 2, 3]);
   assert.equal(dealt.waste.length, 3);
   assert.equal(G.dealPending(dealt), null);
+});
+
+test('staircase deal: 7 columns of 1-7 cards from a full deck', () => {
+  const s = G.newGame(Math.random, { highest: 13, columns: 7, suits: 4 });
+  assert.deepEqual(s.tableau.map((col) => col.length), [1, 2, 3, 4, 5, 6, 7]);
+  for (const col of s.tableau) {
+    assert.deepEqual(col.map((c) => c.faceUp), col.map((_, i) => i === col.length - 1));
+  }
+  assert.equal(s.waste.length, 3);
+  assert.equal(s.stock.length, 52 - 28 - 3);
+});
+
+test('settings: 7 columns with 2 suits drops to the largest count that fits', () => {
+  assert.deepEqual(G.normalizeSettings({ highest: 13, columns: 7, suits: 2 }), { highest: 13, columns: 6, suits: 2 });
+  assert.deepEqual(G.normalizeSettings({ highest: 8, columns: 7, suits: 4 }), { highest: 8, columns: 7, suits: 4 });
 });

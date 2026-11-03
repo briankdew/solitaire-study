@@ -24,7 +24,7 @@
 
   // Settings. An empty column accepts the highest card (a King in classic Klondike).
   const HIGHEST_CHOICES = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-  const COLUMN_CHOICES = [2, 3, 4];
+  const COLUMN_CHOICES = [2, 3, 4, 5, 6, 7];
   const SUIT_CHOICES = [2, 4];
   const DEFAULT_SETTINGS = { highest: 3, columns: 2, suits: 2 };
 
@@ -38,7 +38,7 @@
     return COLUMN_CHOICES.filter((c) => staircaseSize(c) < highest * suits);
   }
 
-  /** Smallest highest card that allows this many columns. */
+  /** Smallest highest card that allows this many columns (above 13 means it needs more suits). */
   function minHighestFor(columns, suits = 2) {
     return Math.floor(staircaseSize(columns) / suits) + 1;
   }
@@ -235,12 +235,8 @@
     const dest = to.pile === 'tableau' ? s.tableau[to.index] : s.foundations[to.index];
     dest.push(...moving);
 
-    if (from.pile === 'waste') {
-      s.wasteFan = s.wasteFan - 1;
-      // Once the fanned cards are used up, the next waste card shows on its own.
-      if (s.waste.length && s.wasteFan < 1) s.wasteFan = 1;
-      if (!s.waste.length) s.wasteFan = 0;
-    }
+    // The rest of the fan shifts right and the next card down fills position 1.
+    if (from.pile === 'waste') s.wasteFan = fanSize(s.waste);
     if (from.pile === 'tableau') {
       const t = top(src);
       if (t && !t.faceUp) t.faceUp = true; // expose and flip
@@ -253,6 +249,11 @@
    * empty, turn the whole waste back over to form the stock again
    * (unlimited passes). Returns null when there is nothing to do.
    */
+  /** The waste always fans its top three cards (fewer when it holds fewer). */
+  function fanSize(waste) {
+    return Math.min(DRAW_COUNT, waste.length);
+  }
+
   function draw(state) {
     if (state.pending) return null;
     const s = clone(state);
@@ -263,7 +264,7 @@
         card.faceUp = true;
         s.waste.push(card);
       }
-      s.wasteFan = n;
+      s.wasteFan = fanSize(s.waste);
       return s;
     }
     if (s.waste.length) {

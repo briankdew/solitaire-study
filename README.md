@@ -9,18 +9,18 @@ It's a single static web page with no build step and no dependencies.
 | Setting | Options | Default |
 | --- | --- | --- |
 | Highest card | 2, 3, 4 … 10, J, Q, K | 3 |
-| Columns | 2, 3, 4 | 2 |
+| Columns | 2, 3, 4, 5, 6, 7 | 2 |
 | Suits | 2 (♠ ♦) or 4 (♠ ♥ ♣ ♦) | 2 |
 | Auto-complete | On or off | On |
 
-The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. A column count is unavailable if the deal would leave no cards for the stock; for example, with 2 suits, 3 columns needs a highest card of 4 or more, and 4 columns needs 6 or more.
+The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. A column count is unavailable if the deal would leave no cards for the stock; the settings line shows what each one needs. With 2 suits, 3 columns needs a highest card of 4 or more, 4 needs 6, 5 needs 8 and 6 needs J; 7 columns needs 4 suits. With 4 suits, 4 columns needs 3, 5 needs 4, 6 needs 6 and 7 needs 8.
 
 ## Rules
 
-- **Shuffle, then deal:** shuffling only mixes the cards. A shuffled deck waits face down in the stock, with a **Deal** button in the waste outline, and nothing is dealt until you click it (or choose **Restart deal**, **New deal** or **Same deal**). The page opens with a shuffled deck waiting.
+- **Shuffle, then deal:** shuffling only mixes the cards. A shuffled deck waits face down in the stock, with a **Deal** button on the third waste position, and nothing is dealt until you click it (or choose **Restart deal**, **New deal** or **Same deal**). The page opens with a shuffled deck waiting.
 - **Deal:** a staircase. Column 1 gets 1 card, column 2 gets 2, and so on, with only the last card in each column face up. The remaining cards form the stock, and the first three are turned over onto the waste right away, so a card can be played immediately.
 - **Goal:** build each suit from Ace up to the highest card on the foundations (one per suit).
-- **Stock and waste:** the latest three waste cards are fanned so they all show, and only the top card can be played. Clicking the stock turns three more; when it's empty, a click turns the waste back over. Passes are unlimited.
+- **Stock and waste:** the waste has three dashed positions, and its top three cards always fill them from the left, with the top card on the right and the only one that can be played. Playing it slides the other two right and brings the next card up into position 1; with only one or two cards left, they sit in positions 1 and 2. Clicking the stock turns three more; when it's empty, a click turns the waste back over. Passes are unlimited. Once three or fewer cards are left in the stock, the top card shows how many, the way you'd see it in your hand.
 - **Columns:** build down in alternating colors (red on black, black on red). An empty column takes only the highest card, or a run that starts with it.
 - **Foundations:** start with an Ace and build up by suit. A card on a foundation can be moved back to a column.
 - A face-down card flips over as soon as it's uncovered.
