@@ -23,6 +23,7 @@ The deck is every rank from Ace to the highest card in each suit, so K with 4 su
 - **Stock and waste:** the waste has three dashed positions, and its top three cards always fill them from the left, with the top card on the right and the only one that can be played. Playing it slides the other two right and brings the next card up into position 1; with only one or two cards left, they sit in positions 1 and 2. Clicking the stock turns three more; when it's empty, a click turns the waste back over. Passes are unlimited. Once three or fewer cards are left in the stock, the top card shows how many, the way you'd see it in your hand.
 - **Columns:** build down in alternating colors (red on black, black on red). An empty column takes only the highest card, or a run that starts with it.
 - **Foundations:** start with an Ace and build up by suit. A card on a foundation can be moved back to a column.
+- **Pile names:** a letter above each pile names it for writing down play: **s** stock, **w** waste, **h** foundations (home), and **a**, **b**, **c**… the columns from left to right.
 - A face-down card flips over as soon as it's uncovered.
 
 ## Controls

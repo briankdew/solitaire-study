@@ -8,7 +8,7 @@
 <meta name="description" content="n-Card Solitaire: a draw-three Klondike for learning solitaire, with any deck from 4 to 52 cards. Empty columns take the highest card.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:wght@500;700&family=Karla:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:ital,wght@0,500;0,700;1,500&family=Karla:ital,wght@0,400;0,600;0,700;1,600&display=swap">
 <style>
   /* Layout: one felt table. Stock and the fanned waste (three dashed positions) on the left, foundations on the right,
      columns centered below. Cards are one size in every game: the largest that fits seven columns across the table. */
@@ -150,6 +150,13 @@
     font: 700 calc(var(--cw) * 0.36) / 1 var(--font-display);
     background: color-mix(in srgb, var(--felt-deep) 35%, transparent);
     padding: 0;
+  }
+  /* Pile names for the play annotation: s stock, w waste, h foundations (home), a, b, c… columns. */
+  .pile-label {
+    position: absolute; left: 0; top: 0;
+    font: italic 600 max(13px, calc(var(--cw) * 0.22)) / 1 var(--font-ui);
+    color: var(--ink-muted);
+    pointer-events: none;
   }
   .slot.stock { cursor: pointer; }
   .slot.stock:disabled { cursor: default; }
@@ -371,6 +378,7 @@
       <li><b>Settings:</b> the highest card (2 to K), the number of columns (2 to 7) and suits (2 or 4). Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. Column counts that would leave no cards for the stock are unavailable.</li>
       <li><b>Moves</b> count cards played to a column or foundation. Turning the stock doesn't count.</li>
       <li><b>Undo move</b> takes back one action, including a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle.</li>
+      <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>h</b> foundations (home), and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
       <li><b>Keyboard:</b> Tab to a card and press Enter to play it. Ctrl+Z undoes a move.</li>
     </ul>
   </details>
@@ -543,6 +551,17 @@
   // Dashed outlines for all three fan positions; slots.waste is position 1.
   slots.wasteFan = [slots.waste, makeSlot('waste', ''), makeSlot('waste', '')];
 
+  function makeLabel(text) {
+    const el = document.createElement('div');
+    el.className = 'pile-label';
+    el.textContent = text;
+    el.setAttribute('aria-hidden', 'true');
+    board.appendChild(el);
+    return el;
+  }
+  const labels = { stock: makeLabel('s'), waste: makeLabel('w'), found: makeLabel('h'), tab: [] };
+  const COLUMN_LETTERS = 'abcdefg';
+
   // Shown on waste position 3 while a shuffled deck waits to be dealt.
   const dealBtn = document.createElement('button');
   dealBtn.type = 'button';
@@ -580,7 +599,7 @@
 
     for (const el of cardEls.values()) el.remove();
     cardEls.clear(); basePos.clear(); lastWhere.clear();
-    [...slots.tab, ...slots.found].forEach((el) => el.remove());
+    [...slots.tab, ...slots.found, ...labels.tab].forEach((el) => el.remove());
 
     slots.found = state.foundations.map((_, i) => {
       const el = makeSlot('foundation', 'A');
@@ -589,9 +608,10 @@
     });
     slots.tab = state.tableau.map((_, i) => {
       const el = makeSlot('column', rankLabel(highest));
-      el.setAttribute('aria-label', `Column ${i + 1}`);
+      el.setAttribute('aria-label', `Column ${COLUMN_LETTERS[i]}`);
       return el;
     });
+    labels.tab = state.tableau.map((_, i) => makeLabel(COLUMN_LETTERS[i]));
     for (const c of G.makeDeck(highest, state.foundations.length)) {
       const el = document.createElement('div');
       el.className = 'card';
@@ -623,7 +643,11 @@
     const ch = Math.round(cw * 1.4);
     const fanDx = Math.round(cw * 0.3);
     const colGap = gap;
-    const tabY = ch + Math.round(cw * 0.4);
+    // A band above each row holds the pile letters.
+    const labelH = Math.max(18, Math.round(cw * 0.32));
+    const topY = labelH;
+    // The gap above the columns is 1.5 times the label band, so the column letters have room.
+    const tabY = topY + ch + Math.round(Math.max(labelH, Math.round(cw * 0.45)) * 1.5);
     const rowW = nCols * cw + (nCols - 1) * colGap;
     const x0 = ox + Math.round((gridW - rowW) / 2);
     L = {
@@ -631,9 +655,9 @@
       downDy: Math.round(ch * 0.12),
       upDy: Math.round(ch * 0.25),
       tabY,
-      stock: { x: ox, y: 0 },
-      waste: { x: ox + cw + gap, y: 0 },
-      found: Array.from({ length: nFound }, (_, i) => ({ x: ox + gridW - (nFound - i) * cw - (nFound - 1 - i) * gap, y: 0 })),
+      stock: { x: ox, y: topY },
+      waste: { x: ox + cw + gap, y: topY },
+      found: Array.from({ length: nFound }, (_, i) => ({ x: ox + gridW - (nFound - i) * cw - (nFound - 1 - i) * gap, y: topY })),
       tab: Array.from({ length: nCols }, (_, i) => ({ x: x0 + i * (cw + colGap), y: tabY })),
       height: 0,
     };
@@ -645,8 +669,16 @@
     dealBtn.style.top = L.waste.y + ch / 2 + 'px';
     slots.found.forEach((el, i) => place(el, L.found[i]));
     slots.tab.forEach((el, i) => place(el, L.tab[i]));
+    // Each letter is centered over its pile: w over the whole three-position fan, h over all the foundations.
+    const lift = Math.round(cw * 0.1);
+    placeLabel(labels.stock, L.stock.x + cw / 2, topY - lift);
+    placeLabel(labels.waste, L.waste.x + fanDx + cw / 2, topY - lift);
+    placeLabel(labels.found, (L.found[0].x + L.found[nFound - 1].x + cw) / 2, topY - lift);
+    labels.tab.forEach((el, i) => placeLabel(el, L.tab[i].x + cw / 2, tabY - lift));
   }
   function place(el, p) { el.style.transform = `translate(${p.x}px, ${p.y}px)`; }
+  // x is the letter's center, y its baseline area: the letter sits just above y.
+  function placeLabel(el, x, y) { el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`; }
 
   /* ---------- render ---------- */
 
