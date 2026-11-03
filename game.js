@@ -125,6 +125,32 @@
     return deal(shuffle(makeDeck(s.highest, s.suits), rng), s);
   }
 
+  /**
+   * A shuffled deck waiting to be dealt: every card face down in the stock,
+   * with empty columns and foundations sized for the settings. `deck` keeps
+   * the shuffle so dealPending() deals exactly this order.
+   */
+  function prepareDeal(rng = Math.random, settings = DEFAULT_SETTINGS) {
+    const s = normalizeSettings(settings);
+    const deck = shuffle(makeDeck(s.highest, s.suits), rng).map((card) => ({ ...card, faceUp: false }));
+    return {
+      highest: s.highest,
+      pending: true,
+      deck,
+      stock: deck.slice().reverse(), // first card to be dealt sits on top
+      waste: [],
+      wasteFan: 0,
+      tableau: Array.from({ length: s.columns }, () => []),
+      foundations: Array.from({ length: s.suits }, () => []),
+    };
+  }
+
+  /** Deal a prepared shuffle. Returns null if the state isn't waiting to be dealt. */
+  function dealPending(state) {
+    if (!state || !state.pending) return null;
+    return deal(state.deck, { columns: state.tableau.length });
+  }
+
   /* ---------- rules ---------- */
 
   /** A run is face up, descending by one, alternating colors. */
@@ -228,6 +254,7 @@
    * (unlimited passes). Returns null when there is nothing to do.
    */
   function draw(state) {
+    if (state.pending) return null;
     const s = clone(state);
     if (s.stock.length) {
       const n = Math.min(DRAW_COUNT, s.stock.length);
@@ -366,6 +393,8 @@
     shuffle,
     deal,
     newGame,
+    prepareDeal,
+    dealPending,
     isRed,
     label,
     spokenName,

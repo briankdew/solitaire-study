@@ -153,6 +153,13 @@
   .slot .recycle { display: none; }
   .slot.stock.can-recycle .recycle { display: block; }
   .slot.waste { border-style: dashed; background: transparent; }
+  .deal-btn {
+    position: absolute; left: 0; top: 0; z-index: 50;
+    transform: translate(-50%, -50%);
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
 
   .card {
     position: absolute; left: 0; top: 0;
@@ -166,7 +173,7 @@
   .card.grab { pointer-events: auto; cursor: grab; }
   .card.dragging { transition: none; cursor: grabbing; }
   .no-anim .card { transition: none; }
-  .board.closed .card { display: none; } /* after Quit: empty table, outlines only */
+  .board.closed .card { cursor: default; } /* after Quit: the table stays as it was, but nothing moves */
 
   .face, .back {
     position: absolute; inset: 0;
@@ -247,6 +254,14 @@
   }
   .win-card h2 { margin: 0; font: 700 1.8rem/1.1 var(--font-display); }
   .win-card p { margin: 0; font-variant-numeric: tabular-nums; }
+  .modal {
+    position: fixed; inset: 0; z-index: 9000;
+    display: grid; place-items: center;
+    padding: 16px;
+    background: color-mix(in srgb, var(--felt-deep) 65%, transparent);
+  }
+  .modal-card:focus { outline: none; }
+  .modal-card p { font-weight: 600; font-size: 1.05rem; }
   .win-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
   .win-card .btn:not(.solid) { color: var(--black); border-color: var(--card-edge); }
   .win-card .btn:not(.solid):hover { background: color-mix(in srgb, var(--black) 7%, transparent); }
@@ -281,8 +296,9 @@
     <div class="toolbar">
       <span class="moves">Moves <b id="moveCount">0</b></span>
       <button class="btn" id="undoBtn" type="button" disabled>Undo move</button>
-      <button class="btn" id="restartBtn" type="button" disabled>Restart game</button>
-      <button class="btn" id="newBtn" type="button">New game</button>
+      <button class="btn" id="restartBtn" type="button" disabled>Restart deal</button>
+      <button class="btn" id="newBtn" type="button">New shuffle</button>
+      <button class="btn" id="quitGameBtn" type="button">Quit</button>
     </div>
   </header>
 
@@ -310,19 +326,32 @@
 
   <p class="status" id="status" aria-live="polite"></p>
 
+  <!-- Confirmation before a reshuffle ends a game in play. Neither choice is preselected. -->
+  <div class="modal" id="confirmModal" hidden>
+    <div class="win-card modal-card" id="confirmCard" role="alertdialog" aria-modal="true" aria-labelledby="confirmText" tabindex="-1">
+      <p id="confirmText">Reshuffling will end the current game!</p>
+      <div class="win-actions">
+        <button class="btn" id="confirmContinue" type="button">Continue</button>
+        <button class="btn" id="confirmCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <details class="howto" id="howto">
     <summary>How to play</summary>
     <ul>
       <li><b>Goal:</b> build each suit from Ace up to the highest card on the foundations at the top right.</li>
-      <li><b>Deal:</b> the columns get 1, 2, 3… cards with only the last one face up, and the first three stock cards are turned over so a card is playable right away.</li>
+      <li><b>Shuffle, then deal:</b> shuffling only mixes the cards, which wait face down in the stock with a <b>Deal</b> button in the waste outline. Dealing puts them on the table to start play.</li>
+      <li><b>Deal:</b> The columns get 1, 2, 3… cards with only the last one face up, and the first three stock cards are turned over so a card is playable right away.</li>
       <li><b>Stock:</b> click it to turn over three more cards, or to turn the waste back over when it runs out. Only the top card of the waste can be played. There is no limit on passes.</li>
       <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only the highest card, or a run that starts with it.</li>
       <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to the leftmost column that takes it, otherwise to its foundation. Cards on top of a clicked column card move with it. A clicked Ace always goes straight to a foundation.</li>
       <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
       <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
-      <li>Once every card is face up, the game finishes itself. When you win, choose <b>New deal</b>, <b>Same deal</b> to replay it, or <b>Quit</b> to clear the table.</li>
-      <li><b>Settings:</b> the highest card (2 to K), the number of columns (2 to 4) and suits (2 or 4). Changing a setting deals a new game. Column counts that would leave no cards for the stock are unavailable.</li>
-      <li><b>Undo move</b> takes back one move. <b>Restart game</b> starts the same deal over from the beginning. <b>New game</b> shuffles a new deal.</li>
+      <li>Once every card is face up, the game finishes itself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
+      <li><b>Settings:</b> the highest card (2 to K), the number of columns (2 to 4) and suits (2 or 4). Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. Column counts that would leave no cards for the stock are unavailable.</li>
+      <li><b>Moves</b> count cards played to a column or foundation. Turning the stock doesn't count.</li>
+      <li><b>Undo move</b> takes back one action, including a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle.</li>
       <li><b>Keyboard:</b> Tab to a card and press Enter to play it. Ctrl+Z undoes a move.</li>
     </ul>
   </details>
@@ -344,6 +373,11 @@
   const newDealBtn = document.getElementById('newDealBtn');
   const sameDealBtn = document.getElementById('sameDealBtn');
   const quitBtn = document.getElementById('quitBtn');
+  const quitGameBtn = document.getElementById('quitGameBtn');
+  const confirmModal = document.getElementById('confirmModal');
+  const confirmCard = document.getElementById('confirmCard');
+  const confirmContinue = document.getElementById('confirmContinue');
+  const confirmCancel = document.getElementById('confirmCancel');
   const ruleLine = document.getElementById('ruleLine');
   const highestSel = document.getElementById('highestSel');
   const columnsSel = document.getElementById('columnsSel');
@@ -371,11 +405,11 @@
 
   let settings = loadSettings();
   let state = null;
-  let initialState = null;   // the deal as it started, for Restart game
+  let shuffleState = null;   // the current shuffle, gathered and undealt, for Restart deal
   let history = [];
   let moves = 0;
   let busy = false;          // true while the automatic finish runs
-  let closed = false;        // true after Quit: the table shows outlines only
+  let closed = false;        // true after Quit: the table stays as it is, but no more play
   let suppressAuto = false;  // set by Undo so the finish doesn't immediately replay
   let L = null;              // layout metrics
   let drag = null;
@@ -418,15 +452,38 @@
     ruleLine.textContent = `${n} cards · Draw three · Empty columns take ${withArticle(settings.highest)}`;
   }
 
-  function onSettingsChange() {
+  async function onSettingsChange() {
     if (busy) { syncSettingsUI(); return; }
+    if (inPlay() && !(await confirmReshuffle())) { syncSettingsUI(); return; } // put the menus back
     const wanted = Number(columnsSel.value);
     settings = G.normalizeSettings({ highest: highestSel.value, columns: wanted, suits: suitsSel.value });
     saveSettings();
     syncSettingsUI();
-    newGame();
-    const note = settings.columns !== wanted ? ` ${wanted} columns needs a higher card, so this deal uses ${settings.columns}.` : '';
-    say(`New deal: ${settings.highest * settings.suits} cards, ${settings.columns} columns.${note}`);
+    prepareNewShuffle();
+    const note = settings.columns !== wanted ? ` ${wanted} columns needs a higher card, so this uses ${settings.columns}.` : '';
+    say(`New deck of ${settings.highest * settings.suits} cards shuffled for ${settings.columns} columns. Click Deal to deal it.${note}`);
+  }
+
+  // Shuffle for the current settings and wait for the Deal button.
+  function prepareNewShuffle() {
+    state = G.prepareDeal(Math.random, settings);
+    shuffleState = state;
+    history = [];
+    moves = 0;
+    suppressAuto = false;
+    closed = false;
+    winPanel.hidden = true;
+    render();
+  }
+
+  // The only way cards get dealt: the Deal button deals the waiting shuffle.
+  function dealShuffle() {
+    if (busy || !state.pending) return;
+    state = G.dealPending(state);
+    history = [];
+    moves = 0;
+    say('');
+    render();
   }
   [highestSel, columnsSel, suitsSel].forEach((sel) => sel.addEventListener('change', onSettingsChange));
   document.getElementById('settingsForm').addEventListener('submit', (e) => e.preventDefault());
@@ -446,6 +503,14 @@
     'button');
   slots.stock.type = 'button';
   slots.waste = makeSlot('waste', '');
+
+  // Shown in the waste outline while a shuffled deck waits to be dealt.
+  const dealBtn = document.createElement('button');
+  dealBtn.type = 'button';
+  dealBtn.className = 'btn solid deal-btn';
+  dealBtn.textContent = 'Deal';
+  dealBtn.hidden = true;
+  board.appendChild(dealBtn);
 
   let builtKey = '';
   const cardEls = new Map();
@@ -529,6 +594,8 @@
     board.style.setProperty('--ch', ch + 'px');
     place(slots.stock, L.stock);
     place(slots.waste, L.waste);
+    dealBtn.style.left = L.waste.x + cw / 2 + 'px';
+    dealBtn.style.top = L.waste.y + ch / 2 + 'px';
     slots.found.forEach((el, i) => place(el, L.found[i]));
     slots.tab.forEach((el, i) => place(el, L.tab[i]));
   }
@@ -569,7 +636,7 @@
     for (const it of items) {
       const el = cardEls.get(it.c.id);
       el.classList.toggle('up', it.c.faceUp);
-      el.classList.toggle('grab', !!it.grab && !busy);
+      el.classList.toggle('grab', !!it.grab && !busy && !closed);
       el.classList.toggle('playable', !!it.playable);
       el.classList.toggle('buried', !!it.buried);
       el.classList.remove('dragging');
@@ -585,22 +652,24 @@
         el.style.zIndex = it.z;
       }
       lastWhere.set(it.c.id, it.where);
-      el.tabIndex = it.grab && !busy ? 0 : -1;
+      el.tabIndex = it.grab && !busy && !closed ? 0 : -1;
       el.setAttribute('role', it.grab ? 'button' : 'img');
       el.setAttribute('aria-label', it.c.faceUp ? G.spokenName(it.c) : 'Face-down card');
     }
 
     board.classList.toggle('closed', closed);
-    if (closed) for (const el of cardEls.values()) el.tabIndex = -1;
+    dealBtn.hidden = closed || !state.pending;
     const canRecycle = !closed && !state.stock.length && state.waste.length > 0;
     slots.stock.classList.toggle('can-recycle', canRecycle);
-    slots.stock.disabled = closed || busy || (!state.stock.length && !state.waste.length);
+    slots.stock.disabled = closed || busy || state.pending || (!state.stock.length && !state.waste.length);
     slots.stock.setAttribute('aria-label',
       state.stock.length ? `Draw ${Math.min(G.DRAW_COUNT, state.stock.length)} cards` : 'Turn the waste back over');
 
     moveCountEl.textContent = moves;
     undoBtn.disabled = closed || busy || !history.length;
-    restartBtn.disabled = busy || (!closed && !history.length);
+    restartBtn.disabled = busy || !shuffleState || (!closed && (state.pending || !history.length));
+    newBtn.disabled = busy;
+    quitGameBtn.disabled = busy || closed;
   }
 
   function say(msg) { statusEl.textContent = msg || ''; }
@@ -614,10 +683,11 @@
 
   /* ---------- actions ---------- */
 
-  function commit(next, message) {
+  // countsAsMove: true for a card played to a column or foundation; turning the stock isn't a move.
+  function commit(next, message, countsAsMove) {
     history.push({ state, moves });
     state = next;
-    moves++;
+    if (countsAsMove) moves++;
     suppressAuto = false;
     say(message);
     afterChange();
@@ -632,7 +702,7 @@
   function tryMove(from, to) {
     const next = G.move(state, from, to);
     if (!next) return false;
-    commit(next, '');
+    commit(next, '', true);
     return true;
   }
 
@@ -640,7 +710,7 @@
     if (busy) return;
     const next = G.draw(state);
     if (!next) return;
-    commit(next, state.stock.length ? '' : 'Waste turned back over.');
+    commit(next, state.stock.length ? '' : 'Waste turned back over.', false);
   }
 
   // Click rules (see G.clickTarget): the top waste card and face-up column cards
@@ -684,45 +754,67 @@
     newDealBtn.focus({ preventScroll: true });
   }
 
-  function newGame() {
-    if (busy) return;
-    state = G.newGame(Math.random, settings);
-    initialState = state;
-    history = [];
-    moves = 0;
-    suppressAuto = false;
-    closed = false;
-    winPanel.hidden = true;
-    say('');
-    render();
+  /** A dealt game that hasn't been won or quit. */
+  function inPlay() {
+    return !!state && !state.pending && !closed && !G.isWon(state);
   }
 
-  // Same shuffle, back to the opening deal.
+  // Ask before a reshuffle ends a game in play. Resolves true for Continue, false for Cancel.
+  // The dialog can only be closed with one of its two buttons, and neither is preselected.
+  let confirmResolve = null;
+  function confirmReshuffle() {
+    confirmModal.hidden = false;
+    confirmCard.focus({ preventScroll: true });
+    return new Promise((resolve) => { confirmResolve = resolve; });
+  }
+  function closeConfirm(answer) {
+    confirmModal.hidden = true;
+    const resolve = confirmResolve;
+    confirmResolve = null;
+    if (resolve) resolve(answer);
+  }
+  const modalOpen = () => !confirmModal.hidden;
+
+  // New shuffle: mix the cards only. They wait in the stock for the Deal button.
+  async function newShuffle() {
+    if (busy) return;
+    if (inPlay() && !(await confirmReshuffle())) return;
+    prepareNewShuffle();
+    say('Cards shuffled. Click Deal to start.');
+  }
+
+  // Restart deal: deal the current shuffle again and start play from the beginning.
   function restartGame() {
-    if (busy || !initialState) return;
-    state = initialState;
+    if (busy || !shuffleState) return;
+    state = G.dealPending(shuffleState);
     history = [];
     moves = 0;
     suppressAuto = false;
     closed = false;
     winPanel.hidden = true;
-    say('Game restarted with the same deal.');
+    say('Same shuffle dealt again.');
     render();
   }
 
-  // Clear the table, leaving the pile outlines. New game or Restart game deals again.
-  function quitGame() {
+  // Win panel "New deal": shuffle and deal in one step.
+  function newDealNow() {
     if (busy) return;
+    prepareNewShuffle();
+    dealShuffle();
+  }
+
+  // Quit: leave the table exactly as it is, with no more play until Restart deal or New shuffle.
+  function quitGame() {
+    if (busy || closed) return;
     closed = true;
-    history = [];
-    moves = 0;
+    drag = null;
     winPanel.hidden = true;
-    say('Table cleared. Choose New game for a new deal, or Restart game to replay this one.');
+    say('Game stopped. Choose Restart deal to replay this deal, or New shuffle to mix the cards.');
     render();
   }
 
   function undo() {
-    if (closed || busy || !history.length) return;
+    if (closed || busy || modalOpen() || !history.length) return;
     const prev = history.pop();
     state = prev.state;
     moves = prev.moves;
@@ -798,9 +890,22 @@
   /* ---------- buttons and keyboard ---------- */
 
   slots.stock.addEventListener('click', drawFromStock);
-  newBtn.addEventListener('click', newGame);
+  newBtn.addEventListener('click', newShuffle);
+  quitGameBtn.addEventListener('click', quitGame);
+  confirmContinue.addEventListener('click', () => closeConfirm(true));
+  confirmCancel.addEventListener('click', () => closeConfirm(false));
+  // Keep keyboard focus inside the dialog while it's open; Escape does not dismiss it.
+  confirmModal.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); return; }
+    if (e.key !== 'Tab') return;
+    const order = [confirmContinue, confirmCancel];
+    const i = order.indexOf(document.activeElement);
+    e.preventDefault();
+    order[(i + (e.shiftKey ? order.length - 1 : 1)) % order.length].focus();
+  });
+  dealBtn.addEventListener('click', dealShuffle);
   restartBtn.addEventListener('click', restartGame);
-  newDealBtn.addEventListener('click', newGame);
+  newDealBtn.addEventListener('click', newDealNow);
   sameDealBtn.addEventListener('click', restartGame);
   quitBtn.addEventListener('click', quitGame);
   undoBtn.addEventListener('click', undo);
@@ -835,7 +940,7 @@
     if (saved && saved.state && Array.isArray(saved.history)) {
       state = saved.state;
       history = saved.history;
-      initialState = saved.initialState || (history.length ? history[0].state : state);
+      shuffleState = saved.shuffleState || null;
       closed = !!saved.closed;
       moves = saved.moves || 0;
       settings = G.normalizeSettings(saved.settings || {
@@ -847,14 +952,15 @@
       if (G.isWon(state) && !closed) showWin();
     } else {
       syncSettingsUI();
-      newGame();
+      prepareNewShuffle();
+      say('Cards shuffled. Click Deal to start.');
     }
     requestAnimationFrame(() => board.classList.remove('no-anim'));
   }
 
   // Keep the game in progress when the page is updated while open on claude.ai.
   const hot = window.claude && window.claude.hot;
-  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ state, history, moves, settings, initialState, closed }));
+  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ state, history, moves, settings, shuffleState, closed }));
   if (hot && typeof hot.ready === 'function') hot.ready(start);
   else start((hot && hot.data) || {});
 })();

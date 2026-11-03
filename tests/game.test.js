@@ -400,3 +400,28 @@ test('auto-finish always completes a big all-face-up game', () => {
   }
   assert.equal(G.isWon(s), true);
 });
+
+/* ---------- waiting to deal ---------- */
+
+test('prepareDeal: the whole shuffled deck waits face down in the stock', () => {
+  const s = G.prepareDeal(Math.random, { highest: 7, columns: 3, suits: 2 });
+  assert.equal(s.pending, true);
+  assert.equal(s.stock.length, 14);
+  assert.ok(s.stock.every((c) => !c.faceUp));
+  assert.deepEqual(s.tableau, [[], [], []]);
+  assert.deepEqual(s.foundations, [[], []]);
+  assert.equal(s.waste.length, 0);
+  assert.equal(G.draw(s), null, 'the stock cannot be turned before the deal');
+  assert.equal(G.isWon(s), false);
+  assert.equal(G.canAutoFinish(s), false);
+});
+
+test('dealPending deals exactly the prepared shuffle', () => {
+  const s = G.prepareDeal(Math.random, { highest: 7, columns: 3, suits: 2 });
+  const dealt = G.dealPending(s);
+  assert.equal(dealt.pending, undefined);
+  assert.deepEqual(dealt, G.deal(s.deck, { columns: 3 }));
+  assert.deepEqual(dealt.tableau.map((col) => col.length), [1, 2, 3]);
+  assert.equal(dealt.waste.length, 3);
+  assert.equal(G.dealPending(dealt), null);
+});

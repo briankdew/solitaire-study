@@ -12,10 +12,11 @@ It's a single static web page with no build step and no dependencies.
 | Columns | 2, 3, 4 | 2 |
 | Suits | 2 (♠ ♦) or 4 (♠ ♥ ♣ ♦) | 2 |
 
-The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting deals a new game, and the browser remembers your choice. A column count is unavailable if the deal would leave no cards for the stock; for example, with 2 suits, 3 columns needs a highest card of 4 or more, and 4 columns needs 6 or more.
+The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. A column count is unavailable if the deal would leave no cards for the stock; for example, with 2 suits, 3 columns needs a highest card of 4 or more, and 4 columns needs 6 or more.
 
 ## Rules
 
+- **Shuffle, then deal:** shuffling only mixes the cards. A shuffled deck waits face down in the stock, with a **Deal** button in the waste outline, and nothing is dealt until you click it (or choose **Restart deal**, **New deal** or **Same deal**). The page opens with a shuffled deck waiting.
 - **Deal:** a staircase. Column 1 gets 1 card, column 2 gets 2, and so on, with only the last card in each column face up. The remaining cards form the stock, and the first three are turned over onto the waste right away, so a card can be played immediately.
 - **Goal:** build each suit from Ace up to the highest card on the foundations (one per suit).
 - **Stock and waste:** the latest three waste cards are fanned so they all show, and only the top card can be played. Clicking the stock turns three more; when it's empty, a click turns the waste back over. Passes are unlimited.
@@ -34,11 +35,15 @@ The deck is every rank from Ace to the highest card in each suit, so K with 4 su
 | Click a foundation's top card | Bring it back down to the leftmost column that takes it |
 | Drag a face-up card | Move it, along with the cards on top of it, to a column or foundation |
 | Enter on a focused card | Same as clicking it |
-| Ctrl+Z / ⌘Z, or **Undo move** | Take back the last move |
-| **Restart game** | Start the same deal over from the beginning |
-| **New game** | Shuffle and deal a new game |
+| Ctrl+Z / ⌘Z, or **Undo move** | Take back the last action, including a turn of the stock |
+| **Deal** | Deal the waiting shuffle and start play |
+| **Restart deal** | Deal the current shuffle again and start play from the beginning |
+| **New shuffle** | Mix the cards without dealing. If a game is in play, it first warns *Reshuffling will end the current game!* with Continue and Cancel |
+| **Quit** | Stop play and leave the table exactly as it is, until Restart deal or New shuffle |
 
-Once the stock and waste are empty and every card is face up, the game finishes itself. When you win, the panel offers **New deal**, **Same deal** (replay the same shuffle) or **Quit** (clear the table, leaving the empty pile outlines).
+The move counter counts cards played to a column or foundation; turning the stock over isn't a move.
+
+Once the stock and waste are empty and every card is face up, the game finishes itself. When you win, the panel offers **New deal** (shuffle and deal a new game), **Same deal** (deal this shuffle again) or **Quit** (stop, leaving the table as it is).
 
 ## Run it locally
 
