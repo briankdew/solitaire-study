@@ -418,7 +418,7 @@
       <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
       <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
       <li>Once every card is face up, the game finishes itself, unless <b>Auto-complete</b> is turned off; then you play every card yourself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
-      <li><b>Settings:</b> the highest card (2 to K, with T for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. Column counts that would leave no cards for the stock are unavailable.</li>
+      <li><b>Settings:</b> the highest card (2 to K, with T for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. There are always at least as many columns as suits, so every highest card can head a column; 4 suits also need a highest card of 3 or more. Column counts that would leave no cards for the stock are unavailable.</li>
       <li><b>Moves</b> count cards played to a column or foundation. Turning the stock doesn't count.</li>
       <li><b>Undo move</b> takes back one action, including a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle.</li>
       <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>n</b> foundations, and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
@@ -601,15 +601,25 @@
     highestSel.value = settings.highest;
     suitsSel.value = settings.suits;
     drawSel.value = settings.draw;
+    const minHighest = G.minHighestForSuits(settings.suits);
+    for (const opt of highestSel.options) opt.disabled = Number(opt.value) < minHighest;
     const allowed = G.allowedColumns(settings.highest, settings.suits);
     for (const opt of columnsSel.options) opt.disabled = !allowed.includes(Number(opt.value));
     columnsSel.value = settings.columns;
-    const blocked = G.COLUMN_CHOICES.filter((c) => !allowed.includes(c));
+    // Columns can be unavailable for two reasons: fewer than one per suit, or too many for the deck.
+    const minCols = G.minColumnsFor(settings.suits);
+    const tooBig = G.COLUMN_CHOICES.filter((c) => c >= minCols && !allowed.includes(c));
     const need = (c) => {
       const h = G.minHighestFor(c, settings.suits);
       return h <= 13 ? `${c} needs ${rankLabel(h)}+` : `${c} needs 4 suits`;
     };
-    settingsHint.textContent = blocked.length ? `More columns need a bigger deck: ${blocked.map(need).join(', ')}.` : '';
+    const hints = [];
+    if (minCols > G.COLUMN_CHOICES[0]) {
+      hints.push(`${settings.suits} suits need at least ${minCols} columns` +
+        (minHighest > G.HIGHEST_CHOICES[0] ? ` and a highest card of ${rankLabel(minHighest)} or more.` : '.'));
+    }
+    if (tooBig.length) hints.push(`More columns need a bigger deck: ${tooBig.map(need).join(', ')}.`);
+    settingsHint.textContent = hints.join(' ');
     const n = settings.highest * settings.suits;
     const drawWord = ['one', 'two', 'three', 'four'][settings.draw - 1];
     ruleLine.textContent = `${n} cards · Draw ${drawWord} · Empty columns take ${withArticle(settings.highest)}`;
@@ -619,11 +629,17 @@
     if (busy) { syncSettingsUI(); return; }
     if (inPlay() && !(await confirmReshuffle())) { syncSettingsUI(); return; } // put the menus back
     const wanted = Number(columnsSel.value);
-    settings = G.normalizeSettings({ highest: highestSel.value, columns: wanted, suits: suitsSel.value, draw: drawSel.value });
+    const wantedHighest = Number(highestSel.value);
+    settings = G.normalizeSettings({ highest: wantedHighest, columns: wanted, suits: suitsSel.value, draw: drawSel.value });
     saveSettings();
     syncSettingsUI();
     prepareNewShuffle();
-    const note = settings.columns !== wanted ? ` ${wanted} columns needs a higher card, so this uses ${settings.columns}.` : '';
+    let note = '';
+    if (settings.highest !== wantedHighest) {
+      note += ` ${settings.suits} suits need a highest card of ${rankLabel(settings.highest)} or more, so this uses ${rankLabel(settings.highest)}.`;
+    }
+    if (settings.columns > wanted) note += ` ${settings.suits} suits need at least ${settings.suits} columns, so this uses ${settings.columns}.`;
+    else if (settings.columns < wanted) note += ` ${wanted} columns needs a higher card, so this uses ${settings.columns}.`;
     say(`New deck of ${settings.highest * settings.suits} cards shuffled for ${settings.columns} columns. Click Deal to deal it.${note}`);
   }
 

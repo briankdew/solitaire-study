@@ -35,9 +35,21 @@
   /** Cards dealt to the columns: 1 + 2 + ... + columns. */
   const staircaseSize = (columns) => (columns * (columns + 1)) / 2;
 
-  /** Column counts that still leave at least one card for the stock. */
+  /**
+   * Fewest columns for a suit count: one per suit. The highest card can only
+   * go to an empty column or a foundation, so with fewer columns than suits
+   * some highest cards could never head a column, which changes the game.
+   */
+  const minColumnsFor = (suits) => suits;
+
+  /** Column counts with at least one column per suit that still leave at least one card for the stock. */
   function allowedColumns(highest, suits = 2) {
-    return COLUMN_CHOICES.filter((c) => staircaseSize(c) < highest * suits);
+    return COLUMN_CHOICES.filter((c) => c >= minColumnsFor(suits) && staircaseSize(c) < highest * suits);
+  }
+
+  /** Smallest highest card that allows any column count with this many suits (4 suits need 3). */
+  function minHighestForSuits(suits) {
+    return HIGHEST_CHOICES.find((h) => allowedColumns(h, suits).length);
   }
 
   /** Smallest highest card that allows this many columns (above 13 means it needs more suits). */
@@ -46,13 +58,15 @@
   }
 
   /**
-   * Clean up settings: unknown values fall back to the defaults, and a
-   * column count that leaves no stock drops to the largest one that fits.
+   * Clean up settings: unknown values fall back to the defaults, a highest
+   * card too low for the suit count rises to the lowest that works, a column
+   * count below one per suit rises to the suit count, and one that leaves no
+   * stock drops to the largest one that fits.
    */
   function normalizeSettings(input = {}) {
     const pick = (value, choices, fallback) => (choices.includes(Number(value)) ? Number(value) : fallback);
-    const highest = pick(input.highest, HIGHEST_CHOICES, DEFAULT_SETTINGS.highest);
     const suits = pick(input.suits, SUIT_CHOICES, DEFAULT_SETTINGS.suits);
+    const highest = Math.max(pick(input.highest, HIGHEST_CHOICES, DEFAULT_SETTINGS.highest), minHighestForSuits(suits));
     const draw = pick(input.draw, DRAW_CHOICES, DEFAULT_SETTINGS.draw);
     const allowed = allowedColumns(highest, suits);
     let columns = pick(input.columns, COLUMN_CHOICES, DEFAULT_SETTINGS.columns);
@@ -396,7 +410,9 @@
     RANK_LABEL,
     staircaseSize,
     allowedColumns,
+    minColumnsFor,
     minHighestFor,
+    minHighestForSuits,
     normalizeSettings,
     highestOf,
     drawOf,

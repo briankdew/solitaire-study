@@ -371,14 +371,14 @@ test('column counts that would leave no stock are not allowed', () => {
   assert.deepEqual(G.allowedColumns(3, 2), [2]);       // 3 columns would use all 6 cards
   assert.deepEqual(G.allowedColumns(4, 2), [2, 3]);
   assert.deepEqual(G.allowedColumns(6, 2), [2, 3, 4]);
-  assert.deepEqual(G.allowedColumns(2, 4), [2, 3]);
-  assert.deepEqual(G.allowedColumns(3, 4), [2, 3, 4]);
+  assert.deepEqual(G.allowedColumns(2, 4), []);       // 4 columns need 10 cards; there are 8
+  assert.deepEqual(G.allowedColumns(3, 4), [4]);
   assert.equal(G.minHighestFor(3, 2), 4);
   assert.equal(G.minHighestFor(4, 2), 6);
   assert.equal(G.minHighestFor(4, 4), 3);
   assert.deepEqual(G.allowedColumns(13, 2), [2, 3, 4, 5, 6]); // 7 columns needs 28 cards
-  assert.deepEqual(G.allowedColumns(8, 4), [2, 3, 4, 5, 6, 7]);
-  assert.deepEqual(G.allowedColumns(7, 4), [2, 3, 4, 5, 6]);
+  assert.deepEqual(G.allowedColumns(8, 4), [4, 5, 6, 7]);
+  assert.deepEqual(G.allowedColumns(7, 4), [4, 5, 6]);
   assert.equal(G.minHighestFor(5, 2), 8);
   assert.equal(G.minHighestFor(6, 2), 11);
   assert.equal(G.minHighestFor(7, 2), 15); // more than K: needs 4 suits
@@ -503,4 +503,25 @@ test('a prepared shuffle keeps its draw count through dealing, and old saves dra
   assert.equal(d.draw, 2);
   assert.equal(d.waste.length, 2);
   assert.equal(G.drawOf(blank()), 3);
+});
+
+/* ---------- at least one column per suit ---------- */
+
+test('settings: at least as many columns as suits', () => {
+  assert.equal(G.minColumnsFor(2), 2);
+  assert.equal(G.minColumnsFor(4), 4);
+  for (const suits of G.SUIT_CHOICES) {
+    for (const highest of G.HIGHEST_CHOICES) {
+      for (const c of G.allowedColumns(highest, suits)) assert.ok(c >= suits);
+    }
+  }
+  // Too few columns for 4 suits rise to 4.
+  assert.deepEqual(G.normalizeSettings({ highest: 13, columns: 2, suits: 4 }), { highest: 13, columns: 4, suits: 4, draw: 3 });
+});
+
+test('settings: 4 suits need a highest card of 3 or more', () => {
+  assert.equal(G.minHighestForSuits(2), 2);
+  assert.equal(G.minHighestForSuits(4), 3);
+  assert.deepEqual(G.normalizeSettings({ highest: 2, columns: 2, suits: 4 }), { highest: 3, columns: 4, suits: 4, draw: 3 });
+  assert.deepEqual(G.normalizeSettings({ highest: 2, columns: 2, suits: 2 }), { highest: 2, columns: 2, suits: 2, draw: 3 });
 });

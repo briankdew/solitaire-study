@@ -10,11 +10,11 @@ It's a single static web page with no build step and no dependencies.
 | --- | --- | --- |
 | Highest card | 2, 3, 4 … 9, T, J, Q, K (T is ten) | 3 |
 | Suits | 2 (♣♦) or 4 (♠♥♣♦) | 2 |
-| Columns | 2, 3, 4, 5, 6, 7 | 2 |
+| Columns | 2, 3, 4, 5, 6, 7 (at least one per suit) | 2 |
 | Draw | 1, 2, 3 or 4 cards turned from the stock at a time | 3 |
 | Auto-complete | On or off | On |
 
-The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. A column count is unavailable if the deal would leave no cards for the stock; the settings line shows what each one needs. With 2 suits, 3 columns needs a highest card of 4 or more, 4 needs 6, 5 needs 8 and 6 needs J; 7 columns needs 4 suits. With 4 suits, 4 columns needs 3, 5 needs 4, 6 needs 6 and 7 needs 8.
+The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. There are always at least as many columns as suits. The highest card can only go to an empty column or a foundation, so with fewer columns than suits some highest cards could never head a column, and the game would play differently from normal solitaire. A column count is also unavailable if the deal would leave no cards for the stock; the settings line shows what each one needs. With 2 suits, 3 columns needs a highest card of 4 or more, 4 needs 6, 5 needs 8 and 6 needs J; 7 columns needs 4 suits. With 4 suits, columns start at 4, which needs a highest card of 3 or more (so 4 suits can't use a highest card of 2); 5 needs 4, 6 needs 6 and 7 needs 8.
 
 ## Rules
 
