@@ -23,8 +23,8 @@ const SAMPLE = () => G.deal(deckOf('AS', '3D', '2S', '3S', '2D', 'AD'));
 
 /* ---------- deck and deal ---------- */
 
-test('deck has the A, 2 and 3 of spades and diamonds', () => {
-  assert.deepEqual(ids(G.makeDeck()).sort(), ['2D', '2S', '3D', '3S', 'AD', 'AS']);
+test('deck has the A, 2 and 3 of clubs and diamonds', () => {
+  assert.deepEqual(ids(G.makeDeck()).sort(), ['2C', '2D', '3C', '3D', 'AC', 'AD']);
 });
 
 test('deal: two columns, and the first three cards are already turned onto the waste', () => {
@@ -322,7 +322,8 @@ test('deck size follows the highest card and the number of suits', () => {
   assert.equal(G.makeDeck(13, 4).length, 52);
   assert.equal(G.makeDeck(2, 2).length, 4);
   assert.deepEqual(ids(G.makeDeck(2, 4)), ['AS', '2S', 'AH', '2H', 'AC', '2C', 'AD', '2D']);
-  assert.ok(G.makeDeck(13, 2).some((c) => c.id === '10S'));
+  assert.ok(G.makeDeck(13, 2).some((c) => c.id === 'TC'));
+  assert.ok(Object.values(G.RANK_LABEL).every((r) => r.length === 1)); // every card id is two characters
 });
 
 test('hearts are red and clubs are black', () => {
@@ -385,10 +386,10 @@ test('column counts that would leave no stock are not allowed', () => {
 });
 
 test('settings are cleaned up: bad values use defaults, too many columns drop to what fits', () => {
-  assert.deepEqual(G.normalizeSettings({}), { highest: 3, columns: 2, suits: 2 });
-  assert.deepEqual(G.normalizeSettings({ highest: 99, columns: 9, suits: 3 }), { highest: 3, columns: 2, suits: 2 });
-  assert.deepEqual(G.normalizeSettings({ highest: 5, columns: 4, suits: 2 }), { highest: 5, columns: 3, suits: 2 });
-  assert.deepEqual(G.normalizeSettings({ highest: '13', columns: '4', suits: '4' }), { highest: 13, columns: 4, suits: 4 });
+  assert.deepEqual(G.normalizeSettings({}), { highest: 3, columns: 2, suits: 2, draw: 3 });
+  assert.deepEqual(G.normalizeSettings({ highest: 99, columns: 9, suits: 3 }), { highest: 3, columns: 2, suits: 2, draw: 3 });
+  assert.deepEqual(G.normalizeSettings({ highest: 5, columns: 4, suits: 2 }), { highest: 5, columns: 3, suits: 2, draw: 3 });
+  assert.deepEqual(G.normalizeSettings({ highest: '13', columns: '4', suits: '4' }), { highest: 13, columns: 4, suits: 4, draw: 3 });
 });
 
 test('every allowed setting deals a full, consistent game', () => {
@@ -456,6 +457,50 @@ test('staircase deal: 7 columns of 1-7 cards from a full deck', () => {
 });
 
 test('settings: 7 columns with 2 suits drops to the largest count that fits', () => {
-  assert.deepEqual(G.normalizeSettings({ highest: 13, columns: 7, suits: 2 }), { highest: 13, columns: 6, suits: 2 });
-  assert.deepEqual(G.normalizeSettings({ highest: 8, columns: 7, suits: 4 }), { highest: 8, columns: 7, suits: 4 });
+  assert.deepEqual(G.normalizeSettings({ highest: 13, columns: 7, suits: 2 }), { highest: 13, columns: 6, suits: 2, draw: 3 });
+  assert.deepEqual(G.normalizeSettings({ highest: 8, columns: 7, suits: 4 }), { highest: 8, columns: 7, suits: 4, draw: 3 });
+});
+
+/* ---------- draw count ---------- */
+
+test('settings: draw is 1 to 4, default 3', () => {
+  assert.equal(G.normalizeSettings({}).draw, 3);
+  for (const d of [1, 2, 3, 4]) assert.equal(G.normalizeSettings({ draw: String(d) }).draw, d);
+  assert.equal(G.normalizeSettings({ draw: 5 }).draw, 3);
+  assert.equal(G.normalizeSettings({ draw: 0 }).draw, 3);
+});
+
+test('deal turns the draw count onto the waste and fans that many', () => {
+  const deck = deckOf('AS', '3D', '2S', '3S', '2D', 'AD');
+  for (const [draw, waste] of [[1, ['AD']], [2, ['AD', '2D']], [4, ['AD', '2D', '3S']]]) {
+    const s = G.deal(deck, { draw });
+    assert.equal(s.draw, draw);
+    assert.deepEqual(ids(s.waste), waste); // draw 4 with 3 left in the stock turns all 3
+    assert.equal(s.wasteFan, waste.length);
+  }
+});
+
+test('draw 1 turns one card at a time and fans only the top card', () => {
+  const s = G.deal(deckOf('AS', '3D', '2S', '3S', '2D', 'AD'), { draw: 1 });
+  const t = G.draw(s);
+  assert.deepEqual(ids(t.waste), ['AD', '2D']);
+  assert.equal(t.wasteFan, 1);
+  assert.deepEqual(ids(G.pickUp(t, WASTE)), ['2D']);
+});
+
+test('draw 4 fans four cards, and playing the top card slides the next one in', () => {
+  const waste = ['AS', '2S', '3S', 'AD', '2D'].map((id) => C(id));
+  const s = blank({ draw: 4, tableau: [[C('3S')], []], waste, wasteFan: 4 });
+  const played = G.move(s, WASTE, { pile: 'tableau', index: 0 }); // 2D onto 3S
+  assert.equal(played.wasteFan, 4);
+  assert.deepEqual(ids(played.waste.slice(-4)), ['AS', '2S', '3S', 'AD']);
+});
+
+test('a prepared shuffle keeps its draw count through dealing, and old saves draw three', () => {
+  const p = G.prepareDeal(Math.random, { highest: 13, columns: 7, suits: 4, draw: 2 });
+  assert.equal(p.draw, 2);
+  const d = G.dealPending(p);
+  assert.equal(d.draw, 2);
+  assert.equal(d.waste.length, 2);
+  assert.equal(G.drawOf(blank()), 3);
 });

@@ -5,12 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>n-Card Solitaire</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="n-Card Solitaire: a draw-three Klondike for learning solitaire, with any deck from 4 to 52 cards. Empty columns take the highest card.">
+<meta name="description" content="n-Card Solitaire: a Klondike for learning solitaire, drawing one to four cards at a time, with any deck from 4 to 52 cards. Empty columns take the highest card.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:ital,wght@0,500;0,700;1,500&family=Karla:ital,wght@0,400;0,600;0,700;1,600&display=swap">
 <style>
-  /* Layout: one felt table. Stock and the fanned waste (three dashed positions) on the left, foundations on the right,
+  /* Layout: one felt table. Stock and the fanned waste (one dashed position per card drawn) on the left, foundations on the right,
      columns centered below. Cards are one size in every game: the largest that fits seven columns across the table. */
   :root {
     --felt: #2f6b57;
@@ -101,7 +101,7 @@
   }
   .btn:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, transparent); }
   .btn:disabled { opacity: 0.4; cursor: default; }
-  .btn:focus-visible, .slot:focus-visible, .field select:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+  .btn:focus-visible, .slot:focus-visible, .field select:focus-visible, .picker-btn:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
 
   /* ---------- settings ---------- */
   .settings {
@@ -111,7 +111,7 @@
     border-bottom: 1px solid var(--slot);
   }
   .field { display: grid; gap: 3px; }
-  .field span {
+  .field > span {
     font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
   }
   .field select {
@@ -125,6 +125,45 @@
     cursor: pointer;
   }
   .field select option { color: var(--black); background: var(--card); }
+
+  /* Suits: a custom dropdown, because a native one can't color each suit. The suits are drawn larger
+     than the number (13pt to 11pt) so they look the same height. */
+  .picker { position: relative; }
+  .picker-btn {
+    display: flex; align-items: center; gap: 10px;
+    font: 600 0.95rem/1.2 var(--font-ui);
+    color: var(--ink);
+    background: color-mix(in srgb, var(--felt-deep) 70%, transparent);
+    border: 1px solid var(--slot);
+    border-radius: 6px;
+    padding: 6px 8px;
+    cursor: pointer;
+  }
+  .picker-btn svg { width: 10px; height: 10px; flex: none; }
+  .picker-list {
+    position: absolute; left: 0; top: calc(100% + 4px); z-index: 6000;
+    min-width: 100%;
+    margin: 0; padding: 4px;
+    list-style: none;
+    background: var(--felt-deep);
+    border: 1px solid var(--slot);
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+  .picker-list:focus { outline: none; }
+  .picker-list li {
+    padding: 6px 8px;
+    border-radius: 4px;
+    font: 600 0.95rem/1.2 var(--font-ui);
+    color: var(--ink);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .picker-list li:hover, .picker-list li.active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+  .picker-list li[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--brass); }
+  .suit-set { font-size: calc(13em / 11); line-height: 1; letter-spacing: 0; }
+  .suit-set .r { color: var(--red); }
+  .suit-set .b { color: var(--black); }
   .toggle { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
   .toggle span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
   .toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--brass); cursor: pointer; }
@@ -151,7 +190,7 @@
     background: color-mix(in srgb, var(--felt-deep) 35%, transparent);
     padding: 0;
   }
-  /* Pile names for the play annotation: s stock, w waste, h foundations (home), a, b, c… columns. */
+  /* Pile names for the play annotation: s stock, w waste, n foundations, a, b, c… columns. */
   .pile-label {
     position: absolute; left: 0; top: 0;
     font: italic 600 max(13px, calc(var(--cw) * 0.22)) / 1 var(--font-ui);
@@ -207,10 +246,8 @@
     display: grid; justify-items: center;
     font: 700 calc(var(--cw) * 0.23) / 0.95 var(--font-display);
   }
-  .idx.wide { font-size: calc(var(--cw) * 0.2); letter-spacing: -0.08em; left: 4%; }
   .idx span { font-family: var(--font-ui); font-size: 0.78em; line-height: 1.1; letter-spacing: 0; }
   .idx.br { top: auto; left: auto; bottom: 5%; right: 7%; transform: rotate(180deg); }
-  .idx.br.wide { right: 4%; }
 
   /* Pips sit on a grid inside this box: x 0/50/100%, y 0-100%. */
   .pips { position: absolute; inset: 18% 30%; font-size: calc(var(--cw) * 0.2); line-height: 1; }
@@ -236,7 +273,7 @@
       repeating-linear-gradient(45deg, var(--back-line) 0 1.5px, transparent 1.5px 6px),
       repeating-linear-gradient(-45deg, var(--back-line) 0 1.5px, transparent 1.5px 6px);
   }
-  /* Cards left in the stock, shown on its top card once three or fewer remain. */
+  /* Cards left in the stock, shown on its top card once one turn or less remains. */
   .back[data-left]::after {
     content: attr(data-left);
     position: absolute; left: 50%; top: 50%;
@@ -329,8 +366,14 @@
 
   <form class="settings" id="settingsForm" aria-label="Game settings">
     <label class="field"><span>Highest card</span><select id="highestSel"></select></label>
+    <div class="field"><span id="suitsLabel">Suits</span>
+      <div class="picker">
+        <button type="button" class="picker-btn" id="suitsBtn" aria-haspopup="listbox" aria-expanded="false"><span class="picker-value"></span><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 3.5 5 7l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <ul class="picker-list" id="suitsList" role="listbox" aria-labelledby="suitsLabel" tabindex="-1" hidden></ul>
+      </div>
+    </div>
     <label class="field"><span>Columns</span><select id="columnsSel"></select></label>
-    <label class="field"><span>Suits</span><select id="suitsSel"></select></label>
+    <label class="field"><span>Draw</span><select id="drawSel"></select></label>
     <label class="toggle"><input type="checkbox" id="autoFinishChk" checked><span>Auto-complete</span></label>
     <p class="hint" id="settingsHint"></p>
   </form>
@@ -367,18 +410,18 @@
     <summary>How to play</summary>
     <ul>
       <li><b>Goal:</b> build each suit from Ace up to the highest card on the foundations at the top right.</li>
-      <li><b>Shuffle, then deal:</b> shuffling only mixes the cards, which wait face down in the stock with a <b>Deal</b> button on the third waste position. Dealing puts them on the table to start play.</li>
-      <li><b>Deal:</b> The columns get 1, 2, 3… cards with only the last one face up, and the first three stock cards are turned over so a card is playable right away.</li>
-      <li><b>Stock:</b> click it to turn over three more cards, or to turn the waste back over when it runs out. Once three or fewer cards are left in the stock, its top card shows how many. The waste always shows its top three cards in its three dashed positions, and only the top (rightmost) one can be played; playing it slides the others right and brings up the next card. There is no limit on passes.</li>
+      <li><b>Shuffle, then deal:</b> shuffling only mixes the cards, which wait face down in the stock with a <b>Deal</b> button on the last waste position. Dealing puts them on the table to start play.</li>
+      <li><b>Deal:</b> The columns get 1, 2, 3… cards with only the last one face up, and the first stock cards (as many as one turn takes) are turned over so a card is playable right away.</li>
+      <li><b>Stock:</b> click it to turn over more cards (as many as the <b>Draw</b> setting), or to turn the waste back over when it runs out. Once one turn or less is left in the stock, its top card shows how many cards remain. The waste has one dashed position per card drawn and always shows that many of its top cards; only the top (rightmost) one can be played, and playing it slides the others right and brings up the next card. There is no limit on passes.</li>
       <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only the highest card, or a run that starts with it.</li>
       <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to the leftmost column that takes it, otherwise to its foundation. Cards on top of a clicked column card move with it. A clicked Ace always goes straight to a foundation.</li>
       <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
       <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
       <li>Once every card is face up, the game finishes itself, unless <b>Auto-complete</b> is turned off; then you play every card yourself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
-      <li><b>Settings:</b> the highest card (2 to K), the number of columns (2 to 7) and suits (2 or 4). Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. Column counts that would leave no cards for the stock are unavailable.</li>
+      <li><b>Settings:</b> the highest card (2 to K, with T for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. Column counts that would leave no cards for the stock are unavailable.</li>
       <li><b>Moves</b> count cards played to a column or foundation. Turning the stock doesn't count.</li>
       <li><b>Undo move</b> takes back one action, including a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle.</li>
-      <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>h</b> foundations (home), and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
+      <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>n</b> foundations, and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
       <li><b>Keyboard:</b> Tab to a card and press Enter to play it. Ctrl+Z undoes a move.</li>
     </ul>
   </details>
@@ -408,7 +451,7 @@
   const ruleLine = document.getElementById('ruleLine');
   const highestSel = document.getElementById('highestSel');
   const columnsSel = document.getElementById('columnsSel');
-  const suitsSel = document.getElementById('suitsSel');
+  const drawSel = document.getElementById('drawSel');
   const autoFinishChk = document.getElementById('autoFinishChk');
   const settingsHint = document.getElementById('settingsHint');
 
@@ -479,11 +522,85 @@
   }
   fillSelect(highestSel, G.HIGHEST_CHOICES, rankLabel);
   fillSelect(columnsSel, G.COLUMN_CHOICES, String);
-  fillSelect(suitsSel, G.SUIT_CHOICES, (n) => (n === 2 ? '2 (♠︎ ♦︎)' : '4 (♠︎ ♥︎ ♣︎ ♦︎)'));
+  fillSelect(drawSel, G.DRAW_CHOICES, String);
+  const suitsSel = makePicker(document.getElementById('suitsBtn'), document.getElementById('suitsList'), 'Suits', G.SUIT_CHOICES,
+    (n) => `${n} <span class="suit-set">${G.SUITS_BY_COUNT[n].map((s) => `<span class="${s === 'H' || s === 'D' ? 'r' : 'b'}">${G.SUIT_SYMBOL[s]}</span>`).join('')}</span>`,
+    (n) => `${n} (${G.SUITS_BY_COUNT[n].map((s) => ({ S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' })[s]).join(', ')})`);
+
+  /**
+   * A small dropdown (button + listbox) that acts like a <select> for the settings code:
+   * it has a `value` and fires 'change' when the player picks a different option.
+   */
+  function makePicker(btn, list, name, choices, html, spoken) {
+    const picker = new EventTarget();
+    let value = choices[0];
+    let active = 0;
+    list.innerHTML = choices.map((v, i) =>
+      `<li role="option" id="${list.id}-${i}" aria-label="${spoken(v)}">${html(v)}</li>`).join('');
+    const items = [...list.children];
+    function show() {
+      btn.querySelector('.picker-value').innerHTML = html(value);
+      btn.setAttribute('aria-label', `${name}: ${spoken(value)}`);
+      items.forEach((li, i) => li.setAttribute('aria-selected', String(choices[i] === value)));
+    }
+    function setActive(i) {
+      active = (i + items.length) % items.length;
+      items.forEach((li, j) => li.classList.toggle('active', j === active));
+      list.setAttribute('aria-activedescendant', items[active].id);
+    }
+    function open() {
+      list.hidden = false;
+      btn.setAttribute('aria-expanded', 'true');
+      setActive(choices.indexOf(value));
+      list.focus();
+    }
+    function close(refocus) {
+      if (list.hidden) return;
+      list.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+      if (refocus) btn.focus();
+    }
+    function choose(i) {
+      close(true);
+      if (choices[i] === value) return;
+      value = choices[i];
+      show();
+      picker.dispatchEvent(new Event('change'));
+    }
+    btn.addEventListener('click', () => (list.hidden ? open() : close(true)));
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); open(); }
+    });
+    list.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') setActive(active + 1);
+      else if (e.key === 'ArrowUp') setActive(active - 1);
+      else if (e.key === 'Home') setActive(0);
+      else if (e.key === 'End') setActive(items.length - 1);
+      else if (e.key === 'Enter' || e.key === ' ') choose(active);
+      else if (e.key === 'Escape') close(true);
+      else if (e.key === 'Tab') { close(false); return; }
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    list.addEventListener('click', (e) => {
+      const li = e.target.closest('li');
+      if (li) choose(items.indexOf(li));
+    });
+    list.addEventListener('focusout', (e) => { if (e.relatedTarget !== btn) close(false); });
+    document.addEventListener('pointerdown', (e) => { if (!btn.parentElement.contains(e.target)) close(false); });
+    Object.defineProperty(picker, 'value', {
+      get: () => value,
+      set: (v) => { value = Number(v); show(); },
+    });
+    show();
+    return picker;
+  }
 
   function syncSettingsUI() {
     highestSel.value = settings.highest;
     suitsSel.value = settings.suits;
+    drawSel.value = settings.draw;
     const allowed = G.allowedColumns(settings.highest, settings.suits);
     for (const opt of columnsSel.options) opt.disabled = !allowed.includes(Number(opt.value));
     columnsSel.value = settings.columns;
@@ -494,14 +611,15 @@
     };
     settingsHint.textContent = blocked.length ? `More columns need a bigger deck: ${blocked.map(need).join(', ')}.` : '';
     const n = settings.highest * settings.suits;
-    ruleLine.textContent = `${n} cards · Draw three · Empty columns take ${withArticle(settings.highest)}`;
+    const drawWord = ['one', 'two', 'three', 'four'][settings.draw - 1];
+    ruleLine.textContent = `${n} cards · Draw ${drawWord} · Empty columns take ${withArticle(settings.highest)}`;
   }
 
   async function onSettingsChange() {
     if (busy) { syncSettingsUI(); return; }
     if (inPlay() && !(await confirmReshuffle())) { syncSettingsUI(); return; } // put the menus back
     const wanted = Number(columnsSel.value);
-    settings = G.normalizeSettings({ highest: highestSel.value, columns: wanted, suits: suitsSel.value });
+    settings = G.normalizeSettings({ highest: highestSel.value, columns: wanted, suits: suitsSel.value, draw: drawSel.value });
     saveSettings();
     syncSettingsUI();
     prepareNewShuffle();
@@ -530,7 +648,7 @@
     say('');
     render();
   }
-  [highestSel, columnsSel, suitsSel].forEach((sel) => sel.addEventListener('change', onSettingsChange));
+  [highestSel, columnsSel, suitsSel, drawSel].forEach((sel) => sel.addEventListener('change', onSettingsChange));
   document.getElementById('settingsForm').addEventListener('submit', (e) => e.preventDefault());
 
   /* ---------- table pieces (rebuilt when the deck or column count changes) ---------- */
@@ -547,9 +665,8 @@
     '<svg class="recycle" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19.6 3.8v4.6H15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     'button');
   slots.stock.type = 'button';
-  slots.waste = makeSlot('waste', '');
-  // Dashed outlines for all three fan positions; slots.waste is position 1.
-  slots.wasteFan = [slots.waste, makeSlot('waste', ''), makeSlot('waste', '')];
+  // Dashed outlines for the waste's fan positions, one per card drawn (built in buildTable).
+  slots.wasteFan = [];
 
   function makeLabel(text) {
     const el = document.createElement('div');
@@ -559,10 +676,10 @@
     board.appendChild(el);
     return el;
   }
-  const labels = { stock: makeLabel('s'), waste: makeLabel('w'), found: makeLabel('h'), tab: [] };
+  const labels = { stock: makeLabel('s'), waste: makeLabel('w'), found: makeLabel('n'), tab: [] };
   const COLUMN_LETTERS = 'abcdefg';
 
-  // Shown on waste position 3 while a shuffled deck waits to be dealt.
+  // Shown on the last waste position while a shuffled deck waits to be dealt.
   const dealBtn = document.createElement('button');
   dealBtn.type = 'button';
   dealBtn.className = 'btn solid deal-btn';
@@ -578,29 +695,29 @@
   function faceHTML(c) {
     const sym = G.SUIT_SYMBOL[c.suit];
     const rank = rankLabel(c.rank);
-    const wide = rank.length > 1 ? ' wide' : '';
     const center = c.rank > 10
       ? `<span class="court">${rank}<span>${sym}</span></span>`
       : `<span class="pips n${c.rank}">` +
         PIPS[c.rank].map(([x, y]) => `<span class="pip${y > 50 ? ' flip' : ''}" style="left:${x}%;top:${y}%">${sym}</span>`).join('') +
         '</span>';
     return `<div class="face ${G.isRed(c) ? 'red' : 'black'}" aria-hidden="true">` +
-      `<span class="idx${wide}">${rank}<span>${sym}</span></span>${center}` +
-      `<span class="idx br${wide}">${rank}<span>${sym}</span></span>` +
+      `<span class="idx">${rank}<span>${sym}</span></span>${center}` +
+      `<span class="idx br">${rank}<span>${sym}</span></span>` +
       `</div><div class="back" aria-hidden="true"></div>`;
   }
 
   /** Make sure the card elements and pile outlines match the current game. */
   function buildTable() {
     const highest = G.highestOf(state);
-    const key = `${highest}/${state.foundations.length}/${state.tableau.length}`;
+    const key = `${highest}/${state.foundations.length}/${state.tableau.length}/${G.drawOf(state)}`;
     if (key === builtKey) return;
     builtKey = key;
 
     for (const el of cardEls.values()) el.remove();
     cardEls.clear(); basePos.clear(); lastWhere.clear();
-    [...slots.tab, ...slots.found, ...labels.tab].forEach((el) => el.remove());
+    [...slots.wasteFan, ...slots.tab, ...slots.found, ...labels.tab].forEach((el) => el.remove());
 
+    slots.wasteFan = Array.from({ length: G.drawOf(state) }, () => makeSlot('waste', ''));
     slots.found = state.foundations.map((_, i) => {
       const el = makeSlot('foundation', 'A');
       el.setAttribute('aria-label', `Foundation ${i + 1}`);
@@ -665,14 +782,15 @@
     board.style.setProperty('--ch', ch + 'px');
     place(slots.stock, L.stock);
     slots.wasteFan.forEach((el, i) => place(el, { x: L.waste.x + i * fanDx, y: L.waste.y }));
-    dealBtn.style.left = L.waste.x + 2 * fanDx + cw / 2 + 'px';
+    const lastFan = (slots.wasteFan.length - 1) * fanDx; // offset of the last fan position
+    dealBtn.style.left = L.waste.x + lastFan + cw / 2 + 'px';
     dealBtn.style.top = L.waste.y + ch / 2 + 'px';
     slots.found.forEach((el, i) => place(el, L.found[i]));
     slots.tab.forEach((el, i) => place(el, L.tab[i]));
-    // Each letter is centered over its pile: w over the whole three-position fan, h over all the foundations.
+    // Each letter is centered over its pile: w over the whole fan, n over all the foundations.
     const lift = Math.round(cw * 0.1);
     placeLabel(labels.stock, L.stock.x + cw / 2, topY - lift);
-    placeLabel(labels.waste, L.waste.x + fanDx + cw / 2, topY - lift);
+    placeLabel(labels.waste, L.waste.x + lastFan / 2 + cw / 2, topY - lift);
     placeLabel(labels.found, (L.found[0].x + L.found[nFound - 1].x + cw) / 2, topY - lift);
     labels.tab.forEach((el, i) => placeLabel(el, L.tab[i].x + cw / 2, tabY - lift));
   }
@@ -689,8 +807,9 @@
       const d = Math.min(i, 3); // a little thickness, capped
       items.push({ c, x: L.stock.x + d, y: L.stock.y - d, z: Z.stock + i, where: 'stock', buried: i < state.stock.length - 3 });
     });
-    // The top three waste cards fill fan positions 1-3 from the left; the top one is playable.
-    const fanStart = state.waste.length - Math.min(G.DRAW_COUNT, state.waste.length);
+    // The waste's top cards (one per card drawn) fill the fan positions from the left; the top one is playable.
+    const drawN = G.drawOf(state);
+    const fanStart = state.waste.length - Math.min(drawN, state.waste.length);
     state.waste.forEach((c, i) =>
       items.push({
         c, x: L.waste.x + Math.max(0, i - fanStart) * L.fanDx, y: L.waste.y, z: Z.waste + i, where: 'waste', buried: i < fanStart - 1,
@@ -737,10 +856,10 @@
       el.setAttribute('aria-label', it.c.faceUp ? G.spokenName(it.c) : 'Face-down card');
     }
 
-    // Like a stock held in the hand: once three or fewer cards are left, the top one shows how many.
+    // Like a stock held in the hand: once one turn or less is left, the top card shows how many.
     const left = state.pending ? 0 : state.stock.length;
     for (const c of state.stock.concat(state.waste)) cardEls.get(c.id).lastElementChild.removeAttribute('data-left');
-    if (left > 0 && left <= G.DRAW_COUNT) cardEls.get(top(state.stock).id).lastElementChild.dataset.left = left;
+    if (left > 0 && left <= drawN) cardEls.get(top(state.stock).id).lastElementChild.dataset.left = left;
 
     board.classList.toggle('closed', closed);
     dealBtn.hidden = closed || !state.pending;
@@ -749,8 +868,8 @@
     slots.stock.disabled = closed || busy || state.pending || (!state.stock.length && !state.waste.length);
     slots.stock.setAttribute('aria-label',
       state.stock.length
-        ? `Draw ${Math.min(G.DRAW_COUNT, state.stock.length)} ${state.stock.length === 1 ? 'card' : 'cards'}` +
-          (left > 0 && left <= G.DRAW_COUNT ? `, ${left} left in the stock` : '')
+        ? `Draw ${Math.min(drawN, state.stock.length)} ${Math.min(drawN, state.stock.length) === 1 ? 'card' : 'cards'}` +
+          (left > 0 && left <= drawN ? `, ${left} left in the stock` : '')
         : 'Turn the waste back over');
 
     moveCountEl.textContent = moves;
@@ -1025,6 +1144,8 @@
 
   function start(saved) {
     board.classList.add('no-anim');
+    // Games saved before ten became T used ids like "10C".
+    if (saved && saved.state) saved = JSON.parse(JSON.stringify(saved).replace(/"10([SHCD])"/g, '"T$1"'));
     if (saved && saved.state && Array.isArray(saved.history)) {
       state = saved.state;
       history = saved.history;

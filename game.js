@@ -13,20 +13,22 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  // Suits in play: two suits use spades and diamonds; four add hearts and clubs.
-  const SUITS_BY_COUNT = { 2: ['S', 'D'], 4: ['S', 'H', 'C', 'D'] };
+  // Suits in play: two suits use clubs and diamonds; four add spades and hearts.
+  const SUITS_BY_COUNT = { 2: ['C', 'D'], 4: ['S', 'H', 'C', 'D'] };
   const SUIT_SYMBOL = { S: '♠︎', H: '♥︎', C: '♣︎', D: '♦︎' }; // text style, not emoji
   const SUIT_NAME = { S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' };
-  const RANK_LABEL = { 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10', 11: 'J', 12: 'Q', 13: 'K' };
+  // Every rank is one character (T for ten), so each card is two: 'TC', 'AH'. This matches the play notation.
+  const RANK_LABEL = { 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'T', 11: 'J', 12: 'Q', 13: 'K' };
   const RANK_NAME = { 1: 'Ace', 11: 'Jack', 12: 'Queen', 13: 'King' };
 
-  const DRAW_COUNT = 3; // cards turned from the stock each time
+  const DRAW_COUNT = 3; // default number of cards turned from the stock each time
 
   // Settings. An empty column accepts the highest card (a King in classic Klondike).
   const HIGHEST_CHOICES = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
   const COLUMN_CHOICES = [2, 3, 4, 5, 6, 7];
   const SUIT_CHOICES = [2, 4];
-  const DEFAULT_SETTINGS = { highest: 3, columns: 2, suits: 2 };
+  const DRAW_CHOICES = [1, 2, 3, 4];
+  const DEFAULT_SETTINGS = { highest: 3, columns: 2, suits: 2, draw: DRAW_COUNT };
 
   /* ---------- settings ---------- */
 
@@ -51,12 +53,13 @@
     const pick = (value, choices, fallback) => (choices.includes(Number(value)) ? Number(value) : fallback);
     const highest = pick(input.highest, HIGHEST_CHOICES, DEFAULT_SETTINGS.highest);
     const suits = pick(input.suits, SUIT_CHOICES, DEFAULT_SETTINGS.suits);
+    const draw = pick(input.draw, DRAW_CHOICES, DEFAULT_SETTINGS.draw);
     const allowed = allowedColumns(highest, suits);
     let columns = pick(input.columns, COLUMN_CHOICES, DEFAULT_SETTINGS.columns);
     if (!allowed.includes(columns)) {
       columns = allowed.filter((c) => c <= columns).pop() || allowed[0];
     }
-    return { highest, columns, suits };
+    return { highest, columns, suits, draw };
   }
 
   /* ---------- cards ---------- */
@@ -87,6 +90,8 @@
   const clone = (state) => JSON.parse(JSON.stringify(state));
   /** The game's top rank (older saved games without it used 3). */
   const highestOf = (state) => state.highest || 3;
+  /** Cards turned from the stock at a time (older saved games without it drew three). */
+  const drawOf = (state) => state.draw || DRAW_COUNT;
 
   /* ---------- dealing ---------- */
 
@@ -94,8 +99,8 @@
    * Deal a deck in the given order as a staircase:
    *   column 1 gets 1 card, column 2 gets 2, ... (only the last card face up),
    *   and the rest form the stock, face down (the deck's last card on top).
-   * The first three stock cards are then turned onto the waste, so a card
-   * is playable right away. With the default 6 cards and 2 columns:
+   * The first stock cards (as many as one turn takes) are then turned onto
+   * the waste, so a card is playable right away. With the default 6 cards and 2 columns:
    *   deck[0] -> column 1; deck[1], deck[2] -> column 2; deck[3..5] -> stock.
    */
   function deal(deck, options = {}) {
@@ -112,6 +117,7 @@
     }
     return draw({
       highest,
+      draw: options.draw || DRAW_COUNT,
       stock: c.slice(k),
       waste: [],
       wasteFan: 0, // how many of the waste's top cards are fanned out
@@ -135,6 +141,7 @@
     const deck = shuffle(makeDeck(s.highest, s.suits), rng).map((card) => ({ ...card, faceUp: false }));
     return {
       highest: s.highest,
+      draw: s.draw,
       pending: true,
       deck,
       stock: deck.slice().reverse(), // first card to be dealt sits on top
@@ -148,7 +155,7 @@
   /** Deal a prepared shuffle. Returns null if the state isn't waiting to be dealt. */
   function dealPending(state) {
     if (!state || !state.pending) return null;
-    return deal(state.deck, { columns: state.tableau.length });
+    return deal(state.deck, { columns: state.tableau.length, draw: drawOf(state) });
   }
 
   /* ---------- rules ---------- */
@@ -236,7 +243,7 @@
     dest.push(...moving);
 
     // The rest of the fan shifts right and the next card down fills position 1.
-    if (from.pile === 'waste') s.wasteFan = fanSize(s.waste);
+    if (from.pile === 'waste') s.wasteFan = fanSize(s);
     if (from.pile === 'tableau') {
       const t = top(src);
       if (t && !t.faceUp) t.faceUp = true; // expose and flip
@@ -244,27 +251,27 @@
     return s;
   }
 
-  /**
-   * Turn up to three cards from the stock onto the waste. With the stock
-   * empty, turn the whole waste back over to form the stock again
-   * (unlimited passes). Returns null when there is nothing to do.
-   */
-  /** The waste always fans its top three cards (fewer when it holds fewer). */
-  function fanSize(waste) {
-    return Math.min(DRAW_COUNT, waste.length);
+  /** The waste always fans as many top cards as one turn takes (fewer when it holds fewer). */
+  function fanSize(state) {
+    return Math.min(drawOf(state), state.waste.length);
   }
 
+  /**
+   * Turn the game's draw count of cards (or what's left) from the stock onto
+   * the waste. With the stock empty, turn the whole waste back over to form
+   * the stock again (unlimited passes). Returns null when there is nothing to do.
+   */
   function draw(state) {
     if (state.pending) return null;
     const s = clone(state);
     if (s.stock.length) {
-      const n = Math.min(DRAW_COUNT, s.stock.length);
+      const n = Math.min(drawOf(s), s.stock.length);
       for (let i = 0; i < n; i++) {
         const card = s.stock.pop();
         card.faceUp = true;
         s.waste.push(card);
       }
-      s.wasteFan = fanSize(s.waste);
+      s.wasteFan = fanSize(s);
       return s;
     }
     if (s.waste.length) {
@@ -382,14 +389,17 @@
     HIGHEST_CHOICES,
     COLUMN_CHOICES,
     SUIT_CHOICES,
+    DRAW_CHOICES,
     DEFAULT_SETTINGS,
     SUIT_SYMBOL,
+    SUITS_BY_COUNT,
     RANK_LABEL,
     staircaseSize,
     allowedColumns,
     minHighestFor,
     normalizeSettings,
     highestOf,
+    drawOf,
     makeDeck,
     shuffle,
     deal,
