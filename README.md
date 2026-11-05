@@ -8,7 +8,7 @@ It's a single static web page with no build step and no dependencies.
 
 | Setting | Options | Default |
 | --- | --- | --- |
-| Highest card | 2, 3, 4 … 9, T, J, Q, K (T is ten) | 3 |
+| Highest card | 2, 3, 4 … 9, X, J, Q, K (X is ten) | 3 |
 | Suits | 2 (♣♦) or 4 (♠♥♣♦) | 2 |
 | Columns | 2, 3, 4, 5, 6, 7 (at least one per suit) | 2 |
 | Draw | 1, 2, 3 or 4 cards turned from the stock at a time | 3 |
@@ -48,6 +48,28 @@ The move counter counts cards played to a column or foundation; turning the stoc
 
 Once the stock and waste are empty and every card is face up, the game finishes itself. Turn **Auto-complete** off to play every card yourself; switching it never reshuffles, and turning it off mid-finish stops the finish where it is. When you win, the panel offers **New deal** (shuffle and deal a new game), **Same deal** (deal this shuffle again) or **Quit** (stop, leaving the table as it is).
 
+## Game record
+
+The strip under the table records the game as it is played, newest at the right, with a small picture of each item above it. **Copy record** copies the official record. The letters above the table name the piles: **s** stock, **w** waste, **h** foundations, **a**, **b**, **c**… columns.
+
+Every item is a card followed by its pile letter. Cards are rank then suit, two characters each, with **X** for ten (`XC`, `AH`). On screen suits are shown as symbols; the official record uses the letters S, H, C, D.
+
+- **Deal:** the waste cards turned up, left to right with the playable card last, then each column's face-up card: `2D2C3Cw 3Da ADb`.
+- **Move:** the card moved (the bottom card of a run) and where it went, then the new top card of the pile it came from and that pile's letter. `--` marks a pile that is now empty: `ADhACb`, `2Dh--w`.
+- **Turn:** each turn of the stock is written like the deal's first item (`8S4H9Dw`). Turning the waste back over writes nothing; the next turn implies it.
+
+Undo removes the last item. The copied record has a **Setup** line (highest card, suits, columns, draw), then the deal and the play:
+
+```
+Setup: 3223
+Deal: 2D2C3Cw 3Da ADb
+Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b
+```
+
+## Page layout
+
+The play area keeps a fixed size, tall enough for the longest column any settings allow, so it never changes when the settings do. The status line sits above it; the settings, the action buttons and How to play are stacked on its right, and the column on its left is kept for the record. On screens narrower than 1000px everything stacks in one column. Planned work is listed in `ROADMAP.md`.
+
 ## Run it locally
 
 Open `index.html` in a browser. To serve it instead:
@@ -71,6 +93,7 @@ npm test
 index.html        page, styles, rendering and input handling
 game.js           game rules (works in the browser and in Node)
 tests/            rule tests (node --test)
+ROADMAP.md        planned work
 ```
 
 ## Publishing on GitHub Pages

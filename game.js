@@ -17,8 +17,8 @@
   const SUITS_BY_COUNT = { 2: ['C', 'D'], 4: ['S', 'H', 'C', 'D'] };
   const SUIT_SYMBOL = { S: '♠︎', H: '♥︎', C: '♣︎', D: '♦︎' }; // text style, not emoji
   const SUIT_NAME = { S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' };
-  // Every rank is one character (T for ten), so each card is two: 'TC', 'AH'. This matches the play notation.
-  const RANK_LABEL = { 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'T', 11: 'J', 12: 'Q', 13: 'K' };
+  // Every rank is one character (X for ten), so each card is two: 'XC', 'AH'. This matches the play notation.
+  const RANK_LABEL = { 1: 'A', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: 'X', 11: 'J', 12: 'Q', 13: 'K' };
   const RANK_NAME = { 1: 'Ace', 11: 'Jack', 12: 'Queen', 13: 'King' };
 
   const DRAW_COUNT = 3; // default number of cards turned from the stock each time
@@ -398,6 +398,90 @@
     return null;
   }
 
+  /* ---------- play notation ---------- */
+  /*
+   * Every item is a card followed by its pile letter: w waste, h foundations,
+   * a, b, c… columns. A token is one of:
+   *   turn  — cards brought up on the waste, left to right, playable last: 2D2C3Cw
+   *   deal  — a column's face-up card after the deal: 3Da
+   *   move  — card moved (the bottom card of a run) + destination, then the
+   *           source's new top card + source; -- when the source is now empty:
+   *           ADhACb, 2Dh--w
+   * The deal is written as a turn token followed by one deal token per column.
+   * Turning the waste back over writes nothing: the next turn implies it.
+   */
+  const COLUMN_LETTERS = 'abcdefg';
+  const RANK_OF = Object.fromEntries(Object.entries(RANK_LABEL).map(([rank, l]) => [l, Number(rank)]));
+
+  /** Card fields from an id like 'TC'. */
+  function parseCard(id) {
+    return { id, rank: RANK_OF[id[0]], suit: id[1] };
+  }
+
+  function pileLetter(loc) {
+    if (loc.pile === 'waste') return 'w';
+    if (loc.pile === 'foundation') return 'h';
+    return COLUMN_LETTERS[loc.index];
+  }
+
+  /**
+   * Token for going from `prev` to `next` by turning cards onto the waste,
+   * or null when nothing was turned up (the waste was turned back over).
+   */
+  function turnToken(prev, next) {
+    if (!next || (prev && !prev.stock.length)) return null;
+    const before = prev ? prev.waste.length : 0;
+    const cards = next.waste.slice(before).map((c) => c.id);
+    return cards.length ? { type: 'turn', cards } : null;
+  }
+
+  /** Tokens for a game just dealt: the waste's turned cards, then each column's face-up card. */
+  function dealTokens(state) {
+    const tokens = [];
+    const turn = state.waste.length ? { type: 'turn', cards: state.waste.map((c) => c.id) } : null;
+    if (turn) tokens.push(turn);
+    state.tableau.forEach((col, i) => {
+      if (col.length) tokens.push({ type: 'deal', card: top(col).id, to: COLUMN_LETTERS[i] });
+    });
+    return tokens;
+  }
+
+  /** Token for a legal move, worked out before it is made; null if the move is illegal. */
+  function moveToken(state, from, to) {
+    const next = move(state, from, to);
+    if (!next) return null;
+    const card = pickUp(state, from)[0];
+    const src = sourcePile(next, from);
+    const t = top(src);
+    return { type: 'move', card: card.id, to: pileLetter(to), top: t ? t.id : null, from: pileLetter(from) };
+  }
+
+  /** A token as text. `cardText` turns a card id into text (the official form is the id itself: 'XC'). */
+  function tokenText(token, cardText = (id) => id) {
+    if (token.type === 'turn') return token.cards.map(cardText).join('') + 'w';
+    if (token.type === 'deal') return cardText(token.card) + token.to;
+    return cardText(token.card) + token.to + (token.top ? cardText(token.top) : '--') + token.from;
+  }
+
+  /** Record header: highest card, suits, columns, draw (e.g. K473). */
+  function setupText(state) {
+    return RANK_LABEL[highestOf(state)] + state.foundations.length + state.tableau.length + drawOf(state);
+  }
+
+  /**
+   * The official game record, written the way it is by hand:
+   *   Setup: 3223
+   *   Deal: 2D2C3Cw 3Da ADb
+   *   Play: ADhACb ACh--b …
+   * `tokens` starts with the deal's tokens (one turn plus one per column).
+   */
+  function recordText(state, tokens) {
+    const dealCount = tokens.findIndex((t, i) => i > 0 && t.type !== 'deal');
+    const split = dealCount < 0 ? tokens.length : dealCount;
+    const line = (list) => list.map((t) => tokenText(t)).join(' ');
+    return `Setup: ${setupText(state)}\nDeal: ${line(tokens.slice(0, split))}\nPlay: ${line(tokens.slice(split))}`;
+  }
+
   return {
     DRAW_COUNT,
     HIGHEST_CHOICES,
@@ -440,5 +524,13 @@
     canAutoFinish,
     nextAutoFinishMove,
     locate,
+    COLUMN_LETTERS,
+    parseCard,
+    turnToken,
+    dealTokens,
+    moveToken,
+    tokenText,
+    setupText,
+    recordText,
   };
 });

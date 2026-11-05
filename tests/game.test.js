@@ -322,7 +322,7 @@ test('deck size follows the highest card and the number of suits', () => {
   assert.equal(G.makeDeck(13, 4).length, 52);
   assert.equal(G.makeDeck(2, 2).length, 4);
   assert.deepEqual(ids(G.makeDeck(2, 4)), ['AS', '2S', 'AH', '2H', 'AC', '2C', 'AD', '2D']);
-  assert.ok(G.makeDeck(13, 2).some((c) => c.id === 'TC'));
+  assert.ok(G.makeDeck(13, 2).some((c) => c.id === 'XC'));
   assert.ok(Object.values(G.RANK_LABEL).every((r) => r.length === 1)); // every card id is two characters
 });
 
@@ -524,4 +524,77 @@ test('settings: 4 suits need a highest card of 3 or more', () => {
   assert.equal(G.minHighestForSuits(4), 3);
   assert.deepEqual(G.normalizeSettings({ highest: 2, columns: 2, suits: 4 }), { highest: 3, columns: 4, suits: 4, draw: 3 });
   assert.deepEqual(G.normalizeSettings({ highest: 2, columns: 2, suits: 2 }), { highest: 2, columns: 2, suits: 2, draw: 3 });
+});
+
+/* ---------- play notation ---------- */
+
+// The user's mock-up game: highest 3, 2 suits, 2 columns, draw 3.
+// Deck order deals a = 3D, b = AC (down) + AD, waste 2D 2C 3C (3C playable).
+const MOCKUP = () => G.deal(deckOf('3D', 'AC', 'AD', '3C', '2C', '2D'), { columns: 2, draw: 3 });
+const H = (index) => ({ pile: 'foundation', index });
+
+test('notation: deal tokens follow the card-then-pile scheme', () => {
+  const s = MOCKUP();
+  assert.deepEqual(G.dealTokens(s).map((t) => G.tokenText(t)), ['2D2C3Cw', '3Da', 'ADb']);
+});
+
+test('notation: the mock-up game is recorded token for token', () => {
+  let s = MOCKUP();
+  const tokens = G.dealTokens(s);
+  const play = (from, to) => {
+    tokens.push(G.moveToken(s, from, to));
+    s = G.move(s, from, to);
+    assert.ok(s, 'move is legal');
+  };
+  play(T(1), H(0));     // A♦ to h, A♣ revealed in b
+  play(T(1), H(1));     // A♣ to h, b empty
+  play(WASTE, T(1));    // 3♣ to b, 2♣ playable
+  play(WASTE, H(1));    // 2♣ to h, 2♦ playable
+  play(WASTE, H(0));    // 2♦ to h, waste empty
+  play(T(0), H(0));     // 3♦ to h, a empty
+  play(T(1), H(1));     // 3♣ to h, b empty
+  assert.ok(G.isWon(s));
+  assert.equal(G.recordText(s, tokens), [
+    'Setup: 3223',
+    'Deal: 2D2C3Cw 3Da ADb',
+    'Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b',
+  ].join('\n'));
+});
+
+test('notation: display text can use suit symbols', () => {
+  const sym = (id) => id[0] + { C: '♣', D: '♦' }[id[1]];
+  const t = { type: 'move', card: 'AD', to: 'h', top: 'AC', from: 'b' };
+  assert.equal(G.tokenText(t, sym), 'A♦hA♣b');
+});
+
+test('notation: a run is named by its bottom card', () => {
+  // a holds AC (down) under the run 2C AD; the run moves onto 3D in b and AC is revealed.
+  const s = blank({ tableau: [[C('AC', false), C('2C'), C('AD')], [C('3D')]] });
+  const t = G.moveToken(s, T(0, 1), T(1));
+  assert.equal(G.tokenText(t), '2CbACa');
+});
+
+test('notation: a foundation card brought back down', () => {
+  const s = blank({ tableau: [[C('3C')], []], foundations: [[C('AD'), C('2D')], []] });
+  assert.equal(G.tokenText(G.moveToken(s, H(0), T(0))), '2DaADh');
+});
+
+test('notation: a turn names only the cards turned up; turning the waste back over writes nothing', () => {
+  const s = blank({ draw: 3, stock: [C('3C', false)], waste: [C('AD'), C('2D'), C('AC')] });
+  const next = G.draw(s);
+  assert.equal(G.tokenText(G.turnToken(s, next)), '3Cw');
+  const recycled = G.draw(next);
+  assert.equal(G.turnToken(next, recycled), null);
+  const again = G.draw(recycled);
+  assert.equal(G.tokenText(G.turnToken(recycled, again)), 'AD2DACw');
+});
+
+test('notation: an illegal move has no token', () => {
+  assert.equal(G.moveToken(MOCKUP(), T(0), T(1)), null);
+});
+
+test('notation: ten is X in card ids and the record header', () => {
+  const s = G.newGame(() => 0.5, { highest: 10, suits: 4, columns: 7, draw: 3 });
+  assert.equal(G.setupText(s), 'X473');
+  assert.deepEqual(G.parseCard('XH'), { id: 'XH', rank: 10, suit: 'H' });
 });
