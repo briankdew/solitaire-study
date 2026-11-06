@@ -8,7 +8,7 @@ It's a single static web page with no build step and no dependencies.
 
 | Setting | Options | Default |
 | --- | --- | --- |
-| Highest card | 2, 3, 4 … 9, X, J, Q, K (X is ten) | 3 |
+| High card | 2, 3, 4 … 9, X, J, Q, K (X is ten) | 3 |
 | Suits | 2 (♣♦) or 4 (♠♥♣♦) | 2 |
 | Columns | 2, 3, 4, 5, 6, 7 (at least one per suit) | 2 |
 | Draw | 1, 2, 3 or 4 cards turned from the stock at a time | 3 |
@@ -31,44 +31,48 @@ The deck is every rank from Ace to the highest card in each suit, so K with 4 su
 
 | Action | Result |
 | --- | --- |
-| Click the stock | Turn over the next 1–4 cards (the **Draw** setting), or turn the waste back over |
+| Click the stock | Turn over the next 1–4 cards (the **Draw** setting). Once the stock runs out it still shows a card back while waste cards are hidden, and a click turns the waste over and turns up the next cards in one go; with every card showing, a click just shakes the waste |
 | Click the top waste card | Play it to the leftmost column that takes it, otherwise to its foundation |
 | Click a face-up column card | Same rule; the cards on top of it move with it as a group (a group can only go to a column) |
 | Click an Ace (waste or column) | Always goes straight to a foundation, even if a column could take it |
 | Click a foundation's top card | Bring it back down to the leftmost column that takes it |
 | Drag a face-up card | Move it, along with the cards on top of it, to a column or foundation |
 | Enter on a focused card | Same as clicking it |
-| Ctrl+Z / ⌘Z, or **Undo move** | Take back the last action, including a turn of the stock |
+| Ctrl+Z / ⌘Z, or **Undo move** | Take back the last action. The button reads **Undo draw** when that action was a turn of the stock |
 | **Deal** | Deal the waiting shuffle and start play |
 | **Restart deal** | Deal the current shuffle again and start play from the beginning |
 | **New shuffle** | Mix the cards without dealing. If a game is in play, it first warns *Reshuffling will end the current game!* with Continue and Cancel |
 | **Quit** | Stop play and leave the table exactly as it is, until Restart deal or New shuffle |
+| **End game** | Stop play like Quit and record the game as a loss (`L` and the move count) |
 
-The move counter counts cards played to a column or foundation; turning the stock over isn't a move.
+Moves (numbered in the game record) count cards played to a column or foundation, including the automatic finish's; turning the stock over isn't a move. The automatic finish plays only straight to the foundations, one move per card, which is the fewest possible.
 
 Once the stock and waste are empty and every card is face up, the game finishes itself. Turn **Auto-complete** off to play every card yourself; switching it never reshuffles, and turning it off mid-finish stops the finish where it is. When you win, the panel offers **New deal** (shuffle and deal a new game), **Same deal** (deal this shuffle again) or **Quit** (stop, leaving the table as it is).
 
 ## Game record
 
-The strip under the table records the game as it is played, newest at the right, with a small picture of each item above it. **Copy record** copies the official record. The letters above the table name the piles: **s** stock, **w** waste, **h** foundations, **a**, **b**, **c**… columns.
+The **Game Record** panel on the left shows the game as it is played, one step per action, newest at the bottom. Each step slides up over the one above it and pins at the top edge as you scroll. It is a visual aid; **Copy record** copies the official record, the notation used to write a game down by hand, described below. The letters above the table name the piles: **s** stock, **w** waste, **h** foundations, **a**, **b**, **c**… columns.
+
+In the panel, each line is cards then a pile letter, in a monospaced font (Cousine, as a subset with its own suit symbols, in `fonts/`) so everything lines up; step labels are smaller, in Archivo. **D** is the deal; a numbered step is a move (the card and where it went, then what now shows on the pile it came from); an unnumbered step is a stock turn showing every waste card in view. Pile letters of the player's own moves are blue; the deal and the waste are gray. **EOP** ends a finished game with the result.
 
 Every item is a card followed by its pile letter. Cards are rank then suit, two characters each, with **X** for ten (`XC`, `AH`). On screen suits are shown as symbols; the official record uses the letters S, H, C, D.
 
 - **Deal:** the waste cards turned up, left to right with the playable card last, then each column's face-up card: `2D2C3Cw 3Da ADb`.
 - **Move:** the card moved (the bottom card of a run) and where it went, then the new top card of the pile it came from and that pile's letter. `--` marks a pile that is now empty: `ADhACb`, `2Dh--w`.
-- **Turn:** each turn of the stock is written like the deal's first item (`8S4H9Dw`). Turning the waste back over writes nothing; the next turn implies it.
+- **Turn:** each turn of the stock names the cards turned up, like the deal's first item (`8S4H9Dw`). A turn with the stock empty turns the waste back over first, in the same action.
+- **Result:** a finished game ends with `W` (won) or `L` (lost, from **End game**) and the number of moves, which is the number of move tokens: `W104`, `L34`.
 
 Undo removes the last item. The copied record has a **Setup** line (highest card, suits, columns, draw), then the deal and the play:
 
 ```
 Setup: 3223
 Deal: 2D2C3Cw 3Da ADb
-Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b
+Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b W7
 ```
 
 ## Page layout
 
-The play area keeps a fixed size, tall enough for the longest column any settings allow, so it never changes when the settings do. The status line sits above it; the settings, the action buttons and How to play are stacked on its right, and the column on its left is kept for the record. On screens narrower than 1000px everything stacks in one column. Planned work is listed in `ROADMAP.md`.
+The play area keeps a fixed size, tall enough for the longest column any settings allow, so it never changes when the settings do. The status line sits above it; the settings, the action buttons and How to play are stacked on its right, and the Game Record panel is on its left. On screens narrower than about 1160px everything stacks in one column. Planned work is listed in `ROADMAP.md`.
 
 ## Run it locally
 
@@ -93,6 +97,7 @@ npm test
 index.html        page, styles, rendering and input handling
 game.js           game rules (works in the browser and in Node)
 tests/            rule tests (node --test)
+fonts/            Cousine subset, the record panel's font (Apache 2.0 license included)
 ROADMAP.md        planned work
 ```
 

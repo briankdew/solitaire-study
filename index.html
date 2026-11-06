@@ -8,7 +8,7 @@
 <meta name="description" content="n-Card Solitaire: a Klondike for learning solitaire, drawing one to four cards at a time, with any deck from 4 to 52 cards. Empty columns take the highest card.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:ital,wght@0,500;0,700;1,500&family=Karla:ital,wght@0,400;0,600;0,700;1,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Bodoni:ital,wght@0,500;0,700;1,500&family=Karla:ital,wght@0,400;0,600;0,700;1,600&family=Archivo:wght@400&display=swap">
 <style>
   /* Layout: one felt table. Stock and the fanned waste (one dashed position per card drawn) on the left, foundations on the right,
      columns centered below. Cards are one size in every game: the largest that fits seven columns across the table. */
@@ -69,18 +69,22 @@
   .layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 648px) minmax(0, 1fr);
-    column-gap: 32px;
+    grid-template-rows: auto 1fr;
+    gap: 10px 32px;
     align-items: start;
   }
-  .side-left { grid-column: 1; }
-  .play { grid-column: 2; display: grid; gap: 10px; min-width: 0; }
-  .side-right { grid-column: 3; display: grid; gap: 22px; justify-items: start; max-width: 20rem; }
-  /* Narrow screens: one column, with the settings and buttons below the play area. */
-  @media (max-width: 1000px) {
-    .layout { grid-template-columns: minmax(0, 648px); justify-content: center; row-gap: 24px; }
-    .side-left:empty { display: none; }
-    .side-left, .play, .side-right { grid-column: 1; }
-    .side-right { max-width: none; }
+  .layout > .status { grid-column: 2; grid-row: 1; }
+  .side-left { grid-column: 1; grid-row: 1 / span 2; justify-self: end; margin-right: 32px; }   /* twice the column gap, like the right side */
+  .play { grid-column: 2; grid-row: 2; min-width: 0; }
+  .side-right { grid-column: 3; grid-row: 1 / span 2; display: grid; gap: 22px; justify-items: start; max-width: 20rem; margin-left: 32px; }   /* twice the column gap from the table */
+  /* Narrow screens: one column, with the record, settings and buttons below the play area. */
+  @media (max-width: 1160px) {   /* below this the side columns no longer fit (allowing for a scrollbar) */
+    .layout { grid-template-columns: minmax(0, 648px); grid-template-rows: none; justify-content: center; row-gap: 24px; }
+    .layout > .status, .side-left, .play, .side-right { grid-column: 1; grid-row: auto; }
+    .layout > .status { order: 0; }
+    .play { order: 1; }
+    .side-left { order: 2; justify-self: center; margin-right: 0; }
+    .side-right { order: 3; max-width: none; margin-left: 0; }
   }
 
   /* ---------- header ---------- */
@@ -107,13 +111,10 @@
     letter-spacing: 0.1em;
     color: var(--ink-muted);
   }
-  /* Moves count above the action buttons, one button per row, as wide as the settings. */
-  .toolbar { display: grid; gap: 8px; width: 16rem; max-width: 100%; }
-  .moves {
-    font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-muted);
-    font-variant-numeric: tabular-nums;
-  }
-  .moves b { color: var(--ink); font-size: 1rem; letter-spacing: 0; margin-left: 4px; }
+  /* The settings and the action buttons share one width: the setting names' column plus the menus'.
+     The action buttons, one per row, stretch to it. */
+  .controls { display: grid; gap: 22px; width: max-content; max-width: 100%; }
+  .toolbar { display: grid; gap: 8px; }
   .btn {
     font: 600 0.9rem/1 var(--font-ui);
     color: var(--ink);
@@ -128,9 +129,13 @@
   .btn:focus-visible, .slot:focus-visible, .field select:focus-visible, .picker-btn:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
 
   /* ---------- settings ---------- */
-  /* One setting per row: its name on the left, its menu on the right. */
-  .settings { display: grid; gap: 8px; width: 16rem; max-width: 100%; margin: 0; }
-  .field { display: grid; grid-template-columns: 1fr 7.5rem; align-items: center; gap: 10px; }
+  /* One setting per row: its name on the left, its menu just right of the longest name. Every menu
+     is as wide as the Suits menu needs for "4" and four suits. */
+  .settings {
+    --menu-w: 6rem;
+    display: grid; grid-template-columns: max-content var(--menu-w); gap: 8px 14px; margin: 0;
+  }
+  .field { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; }
   .field > span {
     font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
   }
@@ -185,11 +190,11 @@
   .suit-set { font-size: calc(13em / 11); line-height: 1; letter-spacing: 0; }
   .suit-set .r { color: var(--red); }
   .suit-set .b { color: var(--black); }
-  .toggle { display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+  .toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
   .toggle span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
   .toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--brass); cursor: pointer; }
   .toggle input:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
-  .hint { margin: 0; font-size: 0.8rem; color: var(--ink-muted); }
+  .hint { grid-column: 1 / -1; contain: inline-size; margin: 0; font-size: 0.8rem; color: var(--ink-muted); }   /* wraps to the settings' width */
   .hint:empty { display: none; }
 
   /* ---------- table ---------- */
@@ -319,49 +324,64 @@
 
   .status { margin: 0; min-height: 1.5em; color: var(--ink-muted); font-size: 0.9rem; }
 
-  /* ---------- game record: a ticker of tokens, each with a picture above it ---------- */
-  .record { display: grid; gap: 6px; }
-  .ticker {
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
+  /* ---------- game record: steps that slide up and pin at the top, newest at the bottom ----------
+     Every character is one cell of Cousine (a subset with its own suit symbols, in fonts/), so cards
+     and pile letters line up in columns. Step labels (D, move numbers, EOP) are smaller, in Archivo. The small gap between cards is a margin, not a
+     character, so the copied record stays plain notation. */
+  @font-face {
+    font-family: 'Cousine Record';
+    src: url('fonts/cousine-record.woff2') format('woff2');
+    font-display: block;
+  }
+  .record { display: grid; justify-items: center; gap: 8px; }
+  .record-title {   /* styled like the setting labels, and lined up with High card (layoutRecord) */
+    margin: 0; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
+  }
+  .record-frame {
+    --step-line: 20px;   /* one line of a step (kept in step with STEP_LINE in the script) */
+    --step-pad: 3px;     /* space above and below a step's lines */
+    --bar: 16px;         /* the green end bars, a little taller than the corner radius */
+    padding: var(--bar) 0;
+    border-radius: 13px;
+    background: #5d8071;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+  .steps {
+    position: relative;
+    /* As narrow as the widest line allows: the deal's first line at Draw 4, "D" (about 1ch in
+       Archivo) + gap 0.8ch + four cards 8.9ch + gap 0.8ch + pile letter 1ch = 12.5ch, plus 0.5ch
+       padding each side. (A move line with "999", about 2.4ch, needs only 6.2ch + gap.) Later
+       lines of a step have no label, so they may use the label's space. */
+    width: 13.5ch;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: none;
-    /* Older tokens fade as they slide off the left edge. */
-    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px);
-    mask-image: linear-gradient(to right, transparent 0, #000 28px);
+    background: var(--card);
+    font: 16px/var(--step-line) 'Cousine Record', monospace;
+    color: var(--black);
   }
-  .ticker::-webkit-scrollbar { display: none; }
-  .ticker-track {
-    display: flex; align-items: flex-start; gap: calc(var(--cw) * 0.35);
-    width: max-content;
-    padding: 4px 4px 2px 28px;
-    min-height: calc(var(--ch) + 1.6em);
+  .steps::-webkit-scrollbar { display: none; }
+  .steps:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+  .step {
+    position: sticky; top: 0;
+    display: grid; grid-template-columns: auto 1fr auto; column-gap: 0.8ch; align-items: baseline;
+    padding: var(--step-pad) 0.5ch;
+    background: var(--card);
+    white-space: nowrap;
   }
-  .ticker-empty { margin: 0; align-self: center; color: var(--ink-muted); font-size: 0.85rem; }
-  .tok { display: grid; gap: 4px; justify-items: start; }
-  .tok-pic { position: relative; width: var(--cw); height: var(--ch); }
-  .tok-pic.two { width: calc(var(--cw) * 1.3); }
-  .mini {
-    position: absolute; left: 0; top: 0;
-    width: var(--cw); height: var(--ch);
-    border-radius: calc(var(--cw) * 0.08);
-  }
-  .mini + .mini { left: calc(var(--cw) * 0.3); }
-  .mini.empty {
-    display: grid; place-items: center;
-    border: 1.5px solid var(--slot);
-    color: var(--slot);
-    font: 700 calc(var(--cw) * 0.36) / 1 var(--font-display);
-    background: color-mix(in srgb, var(--felt-deep) 35%, var(--felt));
-  }
-  .mini.empty.waste { border-style: dashed; background: var(--felt); }
-  .tok-pile {
-    position: absolute; left: 8%; bottom: 3%;
-    font: 500 max(10px, calc(var(--cw) * 0.22)) / 1 var(--font-ui);
-    color: color-mix(in srgb, var(--black) 70%, transparent);
-  }
-  .mini.empty .tok-pile { color: var(--ink); }
-  .tok-text { font-size: 0.85rem; line-height: 1.2; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .record-bar { display: flex; justify-content: flex-end; }
+  /* Each step's top edge casts a shadow up onto the step above it. */
+  .step + .step { box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.25); }
+  .step .lbl { grid-column: 1; grid-row: 1; font: 400 0.85em/1 'Archivo', var(--font-ui); color: #666666; }
+  .step .cards { grid-column: 1 / 3; text-align: right; }   /* only a step's first line has a label beside it */
+  .step .pile { grid-column: 3; }
+  .step .c + .c { margin-left: 0.3ch; }
+  .step .c.r { color: var(--red); }
+  .step .c.none { color: #8a8a8a; }
+  .step .pile.play { color: #3d8fd1; }    /* the player's own moves */
+  .step .pile.auto { color: #8a8a8a; }    /* the deal and the waste: not the player's choice */
+  .step .result { grid-column: 2 / span 2; grid-row: 1; text-align: right; }
+  .step .result.won { color: #4e9a2e; }
+  .step .result.lost { color: var(--red); }
   .btn.small { font-size: 0.8rem; padding: 4px 10px; }
 
   /* ---------- win ---------- */
@@ -425,9 +445,18 @@
   <!-- Three columns: room on the left for the record carousel, the fixed play area,
        and the settings, buttons and How to play stacked on the right. -->
   <div class="layout">
-    <aside class="side side-left"></aside>
+    <p class="status" id="status" aria-live="polite"></p>
+    <aside class="side side-left">
+      <!-- The game record, one step per action. Display only: Copy record copies the official notation. -->
+      <section class="record" id="record" aria-label="Game record">
+        <h2 class="record-title">Game Record</h2>
+        <div class="record-frame" id="recordFrame">
+          <div class="steps" id="steps" tabindex="0" aria-label="Game record, newest at the bottom"></div>
+        </div>
+        <button class="btn small" id="copyRecordBtn" type="button" disabled>Copy record</button>
+      </section>
+    </aside>
     <div class="play">
-      <p class="status" id="status" aria-live="polite"></p>
       <div class="table-wrap">
         <section class="board" id="board" aria-label="Card table"></section>
         <div class="win" id="winPanel" hidden>
@@ -442,16 +471,11 @@
           </div>
         </div>
       </div>
-
-      <!-- The game record: one token per deal item, waste turn and move, with a picture above each. -->
-      <section class="record" aria-label="Game record">
-        <div class="ticker" id="ticker" tabindex="0" aria-label="Game record, newest at the right"><div class="ticker-track" id="tickerTrack"></div></div>
-        <div class="record-bar"><button class="btn small" id="copyRecordBtn" type="button" disabled>Copy record</button></div>
-      </section>
     </div>
     <aside class="side side-right">
+      <div class="controls">
       <form class="settings" id="settingsForm" aria-label="Game settings">
-        <label class="field"><span>Highest card</span><select id="highestSel"></select></label>
+        <label class="field"><span>High card</span><select id="highestSel"></select></label>
         <div class="field"><span id="suitsLabel">Suits</span>
           <div class="picker">
             <button type="button" class="picker-btn" id="suitsBtn" aria-haspopup="listbox" aria-expanded="false"><span class="picker-value"></span><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 3.5 5 7l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
@@ -464,11 +488,12 @@
         <p class="hint" id="settingsHint"></p>
       </form>
       <div class="toolbar" aria-label="Game actions">
-        <span class="moves">Moves <b id="moveCount">0</b></span>
         <button class="btn" id="undoBtn" type="button" disabled>Undo move</button>
         <button class="btn" id="restartBtn" type="button" disabled>Restart deal</button>
         <button class="btn" id="newBtn" type="button">New shuffle</button>
         <button class="btn" id="quitGameBtn" type="button">Quit</button>
+        <button class="btn" id="endGameBtn" type="button" disabled>End game</button>
+      </div>
       </div>
       <details class="howto" id="howto">
         <summary>How to play</summary>
@@ -476,17 +501,18 @@
           <li><b>Goal:</b> build each suit from Ace up to the highest card on the foundations at the top right.</li>
           <li><b>Shuffle, then deal:</b> shuffling only mixes the cards, which wait face down in the stock with a <b>Deal</b> button on the last waste position. Dealing puts them on the table to start play.</li>
           <li><b>Deal:</b> The columns get 1, 2, 3… cards with only the last one face up, and the first stock cards (as many as one turn takes) are turned over so a card is playable right away.</li>
-          <li><b>Stock:</b> click it to turn over more cards (as many as the <b>Draw</b> setting), or to turn the waste back over when it runs out. Once one turn or less is left in the stock, its top card shows how many cards remain. The waste has one dashed position per card drawn and always shows that many of its top cards; only the top (rightmost) one can be played, and playing it slides the others right and brings up the next card. There is no limit on passes.</li>
+          <li><b>Stock:</b> click it to turn over more cards (as many as the <b>Draw</b> setting). The stock and waste work as one pile: once the stock runs out, the stock still shows a card back while any waste cards are hidden under the fan, and clicking it turns the waste back over and turns up the next cards in one go. When every remaining card is already showing, clicking it just shakes the waste. Once one turn or less is left in the real stock, its top card shows how many cards remain. The waste has one dashed position per card drawn and always shows that many of its top cards; only the top (rightmost) one can be played, and playing it slides the others right and brings up the next card. There is no limit on passes.</li>
           <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only the highest card, or a run that starts with it.</li>
           <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to the leftmost column that takes it, otherwise to its foundation. Cards on top of a clicked column card move with it. A clicked Ace always goes straight to a foundation.</li>
           <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
           <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
           <li>Once every card is face up, the game finishes itself, unless <b>Auto-complete</b> is turned off; then you play every card yourself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
-          <li><b>Settings:</b> the highest card (2 to K, with X for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. There are always at least as many columns as suits, so every highest card can head a column; 4 suits also need a highest card of 3 or more. Column counts that would leave no cards for the stock are unavailable.</li>
-          <li><b>Moves</b> count cards played to a column or foundation. Turning the stock doesn't count.</li>
-          <li><b>Undo move</b> takes back one action, including a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle.</li>
+          <li><b>Settings:</b> the high card (the highest rank in each suit, 2 to K, with X for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. There are always at least as many columns as suits, so every highest card can head a column; 4 suits also need a highest card of 3 or more. Column counts that would leave no cards for the stock are unavailable.</li>
+          <li><b>Moves</b> (numbered in the game record) count cards played to a column or foundation, including those the automatic finish plays. Turning the stock doesn't count.</li>
+          <li><b>Undo move</b> takes back one action; it reads <b>Undo draw</b> when the last action was a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle. <b>End game</b> does the same and records the game as a loss.</li>
           <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>h</b> foundations, and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
-          <li><b>Game record:</b> the strip under the table records the game as it is played, newest at the right, with a picture of each item above it. Every item is a card followed by its pile letter. The deal is written first: the waste cards turned up (playable card last), then each column's face-up card, e.g. <b>2♦2♣3♣w 3♦a A♦b</b>. A move is the card moved (the bottom card of a run) and where it went, then the new top card of the pile it came from and that pile's letter, with <b>--</b> when that pile is now empty: <b>A♦hA♣b</b>, <b>2♦h--w</b>. Each turn of the stock is written like the deal's first item; turning the waste back over writes nothing. Undo removes the last item. <b>Copy record</b> copies the official record, with suit letters (S H C D) in place of symbols, under a <b>Setup</b> line of highest card, suits, columns and draw (e.g. 3223).</li>
+          <li><b>Game Record:</b> the panel on the left shows the game as it is played, one step per action, newest at the bottom; scroll it to look back. Each line is cards and then a pile letter. <b>D</b> is the deal: the waste cards showing, then each column's face-up card. A numbered step is a move: the card moved (the bottom card of a run) and where it went, then what now shows on the pile it came from and that pile's letter (<b>--</b> when it is empty). An unnumbered step is a turn of the stock, showing every waste card in view. Letters of your own moves are blue; the deal and the waste are gray. <b>EOP</b> ends a finished game: <b>W</b> (win) or <b>L</b> (loss, from End game) and the number of moves. Undo removes the last step.</li>
+          <li><b>Copy record</b> copies the official record, the notation used to write a game down by hand: suit letters (S H C D), every item a card then its pile letter, a move written as one token (<b>ADhACb</b>, <b>2Dh--w</b>), a stock turn naming the cards turned up (<b>8S4H9Dw</b>), and the result last (<b>W7</b>), under a <b>Setup</b> line of highest card, suits, columns and draw (e.g. 3223).</li>
           <li><b>Keyboard:</b> Tab to a card and press Enter to play it. Ctrl+Z undoes a move.</li>
         </ul>
       </details>
@@ -512,7 +538,6 @@
   'use strict';
   const G = window.SixCard;
   const board = document.getElementById('board');
-  const moveCountEl = document.getElementById('moveCount');
   const undoBtn = document.getElementById('undoBtn');
   const newBtn = document.getElementById('newBtn');
   const restartBtn = document.getElementById('restartBtn');
@@ -533,8 +558,12 @@
   const drawSel = document.getElementById('drawSel');
   const autoFinishChk = document.getElementById('autoFinishChk');
   const settingsHint = document.getElementById('settingsHint');
-  const ticker = document.getElementById('ticker');
-  const tickerTrack = document.getElementById('tickerTrack');
+  const recordEl = document.getElementById('record');
+  const recordFrame = document.getElementById('recordFrame');
+  const recordTitle = recordEl.querySelector('.record-title');
+  const highestLabel = highestSel.previousElementSibling;   // the "High card" label text
+  const stepsEl = document.getElementById('steps');
+  const endGameBtn = document.getElementById('endGameBtn');
   const copyRecordBtn = document.getElementById('copyRecordBtn');
 
   const AUTO_STEP_MS = 180;
@@ -780,6 +809,14 @@
   const labels = { stock: makeLabel('s'), waste: makeLabel('w'), found: makeLabel('h'), tab: [] };
   const COLUMN_LETTERS = G.COLUMN_LETTERS;
 
+  // A card back on the empty stock while waste cards are hidden under the fan: to the player the
+  // stock and waste are one pile, so there is always "more stock" until every card is showing.
+  const fakeStock = document.createElement('div');
+  fakeStock.className = 'card fake-stock';
+  fakeStock.innerHTML = '<div class="back" aria-hidden="true"></div>';
+  fakeStock.hidden = true;
+  board.appendChild(fakeStock);
+
   // Shown on the last waste position while a shuffled deck waits to be dealt.
   const dealBtn = document.createElement('button');
   dealBtn.type = 'button';
@@ -889,10 +926,6 @@
     L.fixedHeight = tabY + maxDown * L.downDy + (maxUp - 1) * L.upDy + ch + 8;
     board.style.setProperty('--cw', cw + 'px');
     board.style.setProperty('--ch', ch + 'px');
-    // The record's pictures use smaller cards, never too small to read.
-    const mw = Math.max(40, Math.round(cw * 0.66));
-    ticker.style.setProperty('--cw', mw + 'px');
-    ticker.style.setProperty('--ch', Math.round(mw * 1.4) + 'px');
     place(slots.stock, L.stock);
     slots.wasteFan.forEach((el, i) => place(el, { x: L.waste.x + i * fanDx, y: L.waste.y }));
     const lastFan = (slots.wasteFan.length - 1) * fanDx; // offset of the last fan position
@@ -906,7 +939,33 @@
     placeLabel(labels.waste, L.waste.x + lastFan / 2 + cw / 2, topY - lift);
     placeLabel(labels.found, (L.found[0].x + L.found[nFound - 1].x + cw) / 2, topY - lift);
     labels.tab.forEach((el, i) => placeLabel(el, L.tab[i].x + cw / 2, tabY - lift));
+    layoutRecord();
   }
+
+  // The record's window is a whole number of move steps tall (a move step is two lines).
+  // Beside the table, the title lines up with the High card label across the table and the
+  // record fills the space down to the bottom of the table. Below the table (narrow screens)
+  // it is as tall as the table from the top of the stock down.
+  const STEP_LINE = 20, STEP_PAD = 3;
+  const MOVE_STEP_H = 2 * STEP_LINE + 2 * STEP_PAD;
+  const narrowLayout = window.matchMedia('(max-width: 1160px)');
+  function layoutRecord() {
+    if (!L.fixedHeight) return;
+    const bars = 2 * parseFloat(getComputedStyle(recordFrame).paddingTop);   // the end bars
+    const below = copyRecordBtn.offsetHeight + 8;        // Copy record and the gap above it
+    recordEl.style.marginTop = '0';
+    let room = L.fixedHeight - L.stock.y;
+    if (!narrowLayout.matches) {
+      const mid = (el) => { const r = el.getBoundingClientRect(); return r.top + r.height / 2; };
+      recordEl.style.marginTop = mid(highestLabel) - mid(recordTitle) + 'px';
+      room = board.getBoundingClientRect().top + L.fixedHeight - recordFrame.getBoundingClientRect().top;
+    }
+    const fit = Math.floor((room - bars - below) / MOVE_STEP_H);
+    stepsEl.style.height = Math.max(4, fit) * MOVE_STEP_H + 'px';
+  }
+  narrowLayout.addEventListener('change', () => { if (L) layoutRecord(); });
+  // Web fonts can change the labels' heights once they load, so line the title up again then.
+  if (document.fonts) document.fonts.ready.then(() => { if (L) layoutRecord(); });
   function place(el, p) { el.style.transform = `translate(${p.x}px, ${p.y}px)`; }
   // x is the letter's center, y its baseline area: the letter sits just above y.
   function placeLabel(el, x, y) { el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`; }
@@ -978,19 +1037,24 @@
     dealBtn.hidden = closed || !state.pending;
     const canRecycle = !closed && !state.stock.length && state.waste.length > 0;
     slots.stock.classList.toggle('can-recycle', canRecycle);
+    fakeStock.hidden = state.pending || state.stock.length > 0 || !G.hasHiddenWaste(state);
+    if (!fakeStock.hidden) { place(fakeStock, L.stock); fakeStock.style.zIndex = Z.stock; }
     slots.stock.disabled = closed || busy || state.pending || (!state.stock.length && !state.waste.length);
     slots.stock.setAttribute('aria-label',
       state.stock.length
         ? `Draw ${Math.min(drawN, state.stock.length)} ${Math.min(drawN, state.stock.length) === 1 ? 'card' : 'cards'}` +
           (left > 0 && left <= drawN ? `, ${left} left in the stock` : '')
-        : 'Turn the waste back over');
+        : G.hasHiddenWaste(state) ? `Turn the waste over and draw ${Math.min(drawN, state.waste.length)}` : 'No more cards to turn up');
 
     renderRecord();
-    moveCountEl.textContent = moves;
     undoBtn.disabled = closed || busy || !history.length;
+    // A draw is the only action that doesn't add a move, so the button names what it would take back.
+    const lastAction = history[history.length - 1];
+    undoBtn.textContent = lastAction && lastAction.moves === moves ? 'Undo draw' : 'Undo move';
     restartBtn.disabled = busy || !shuffleState || (!closed && (state.pending || !history.length));
     newBtn.disabled = busy;
     quitGameBtn.disabled = busy || closed;
+    endGameBtn.disabled = busy || !inPlay();
   }
 
   function say(msg) { statusEl.textContent = msg || ''; }
@@ -1001,59 +1065,84 @@
     if (record && token) record.push(token);
   }
 
-  const cardSymbolText = (id) => id[0] + G.SUIT_SYMBOL[id[1]];
+  // Plain suit symbols: Cousine Record draws them itself, one cell wide, so they never fall back to another font.
+  const SUIT_CHAR = { S: '♠', H: '♥', C: '♣', D: '♦' };
+  const isRedId = (id) => id[1] === 'H' || id[1] === 'D';
 
-  // One picture card: a small card face, or an empty pile, with its pile letter at the bottom left.
-  function miniHTML(id, letter) {
-    const pile = `<span class="tok-pile">${letter}</span>`;
-    if (id) return `<div class="mini">${frontHTML(G.parseCard(id))}${pile}</div>`;
-    const kind = letter === 'w' ? 'waste' : letter === 'h' ? 'foundation' : 'column';
-    const mark = kind === 'column' ? rankLabel(G.highestOf(state)) : '';
-    return `<div class="mini empty ${kind}">${mark}${pile}</div>`;
+  /**
+   * Group the record into steps: the deal (its waste turn and one line per column),
+   * then one step per move, waste turn and result. Moves are numbered.
+   */
+  function stepsOf(tokens) {
+    const steps = [];
+    let i = 0;
+    if (tokens.length && tokens[0].type === 'turn') {
+      let j = 1;
+      while (j < tokens.length && tokens[j].type === 'deal') j++;
+      steps.push({ key: tokens[0], kind: 'deal', tokens: tokens.slice(0, j) });
+      i = j;
+    }
+    let n = 0;
+    for (; i < tokens.length; i++) {
+      const t = tokens[i];
+      if (t.type === 'move') steps.push({ key: t, kind: 'move', token: t, number: ++n });
+      else if (t.type === 'turn') steps.push({ key: t, kind: 'turn', token: t });
+      else if (t.type === 'result') steps.push({ key: t, kind: 'eop', token: t });
+    }
+    return steps;
   }
 
-  // A turn shows the playable card on the waste; a move shows the card at its
-  // destination, overlapped by the new top card (or empty pile) it left behind.
-  function tokenEl(t) {
+  // One line of a step: cards right-aligned (-- when the pile is empty), then the pile letter,
+  // blue for the player's own moves and gray for the deal and the waste.
+  // `row` places the line explicitly, so every letter stays beside its own cards.
+  function lineHTML(ids, letter, own, row) {
+    const cards = ids.length
+      ? ids.map((id) => `<span class="c${isRedId(id) ? ' r' : ''}">${id[0]}${SUIT_CHAR[id[1]]}</span>`).join('')
+      : '<span class="c none">--</span>';
+    const at = `style="grid-row:${row}"`;
+    return `<span class="cards" ${at}>${cards}</span><span class="pile ${own ? 'play' : 'auto'}" ${at}>${letter}</span>`;
+  }
+
+  // The waste cards showing after a token (older records without `fan` fall back to what they name).
+  const fanOf = (t) => t.fan || (t.type === 'turn' ? t.cards : t.top ? [t.top] : []);
+
+  function stepEl(step) {
     const el = document.createElement('div');
-    el.className = 'tok';
-    let pic;
-    if (t.type === 'turn') pic = miniHTML(t.cards[t.cards.length - 1], 'w');
-    else if (t.type === 'deal') pic = miniHTML(t.card, t.to);
-    else pic = miniHTML(t.card, t.to) + miniHTML(t.top, t.from);
-    el.innerHTML = `<div class="tok-pic${t.type === 'move' ? ' two' : ''}" aria-hidden="true">${pic}</div>` +
-      `<div class="tok-text"></div>`;
-    el.lastElementChild.textContent = G.tokenText(t, cardSymbolText);
+    el.className = 'step';
+    let html = '';
+    if (step.kind === 'deal') {
+      const [turn, ...cols] = step.tokens;
+      html = '<span class="lbl">D</span>' + lineHTML(fanOf(turn), 'w', false, 1) +
+        cols.map((t, i) => lineHTML([t.card], t.to, false, i + 2)).join('');
+    } else if (step.kind === 'move') {
+      const t = step.token;
+      const left = t.from === 'w' ? fanOf(t) : t.top ? [t.top] : [];
+      html = `<span class="lbl">${step.number}</span>` + lineHTML([t.card], t.to, true, 1) + lineHTML(left, t.from, t.from !== 'w', 2);
+    } else if (step.kind === 'turn') {
+      html = lineHTML(fanOf(step.token), 'w', false, 1);
+    } else {
+      const t = step.token;
+      html = `<span class="lbl">EOP</span><span class="result ${t.won ? 'won' : 'lost'}">${G.tokenText(t)}</span>`;
+    }
+    el.innerHTML = html;
     return el;
   }
 
-  // Bring the ticker up to date: keep the tokens already shown, drop any that
-  // were undone, add the new ones, and slide the newest into view.
-  let shownTokens = [];
+  // Bring the record up to date: keep the steps already shown, drop any that were undone,
+  // add the new ones, and slide the newest up into view at the bottom.
+  let shownKeys = [];
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   function renderRecord() {
-    const tokens = record || [];
-    let same = 0;
-    while (same < shownTokens.length && same < tokens.length && shownTokens[same] === tokens[same]) same++;
-    if (same === shownTokens.length && same === tokens.length && tickerTrack.childElementCount) {
-      copyRecordBtn.disabled = !record || !record.length;
-      return;
-    }
-    const fresh = same === 0;
-    [...tickerTrack.querySelectorAll('.tok')].slice(same).forEach((el) => el.remove());
-    const note = tickerTrack.querySelector('.ticker-empty');
-    if (note) note.remove();
-    for (const t of tokens.slice(same)) tickerTrack.appendChild(tokenEl(t));
-    if (!tokens.length) {
-      const p = document.createElement('p');
-      p.className = 'ticker-empty';
-      p.textContent = record ? 'The record starts when the cards are dealt.' : 'This game was not recorded. Restart the deal to record it.';
-      tickerTrack.appendChild(p);
-    }
-    shownTokens = tokens.slice();
     copyRecordBtn.disabled = !record || !record.length;
-    const left = Math.max(0, ticker.scrollWidth - ticker.clientWidth);
-    ticker.scrollTo({ left, behavior: fresh || reduceMotion.matches ? 'auto' : 'smooth' });
+    const steps = stepsOf(record || []);
+    let same = 0;
+    while (same < shownKeys.length && same < steps.length && shownKeys[same] === steps[same].key) same++;
+    if (same === shownKeys.length && same === steps.length) return;
+    const fresh = same === 0;
+    [...stepsEl.children].slice(same).forEach((el) => el.remove());
+    for (const step of steps.slice(same)) stepsEl.appendChild(stepEl(step));
+    shownKeys = steps.map((st) => st.key);
+    stepsEl.scrollTo({ top: stepsEl.scrollHeight, behavior: fresh || reduceMotion.matches ? 'auto' : 'smooth' });
   }
 
   async function copyRecord() {
@@ -1112,11 +1201,13 @@
     return true;
   }
 
+  // With every stock and waste card already showing, turning the stock changes nothing:
+  // the waste shakes, and nothing is recorded or added to Undo.
   function drawFromStock() {
-    if (busy) return;
+    if (busy || closed) return;
     const next = G.draw(state);
-    if (!next) return;
-    commit(next, state.stock.length ? '' : 'Waste turned back over.', false, G.turnToken(state, next));
+    if (!next) { G.fanIds(state).forEach(shake); return; }
+    commit(next, '', false, G.turnToken(state, next));
   }
 
   // Click rules (see G.clickTarget): the top waste card and face-up column cards
@@ -1155,6 +1246,11 @@
   }
 
   function showWin() {
+    // The record ends with the result (once: a restored game may already have it).
+    if (record && !(record.length && record[record.length - 1].type === 'result')) {
+      record.push(G.resultToken(record, true));
+      renderRecord();
+    }
     say('');
     winText.textContent = `In ${moves} ${moves === 1 ? 'move' : 'moves'}.`;
     winPanel.hidden = false;
@@ -1218,6 +1314,17 @@
     drag = null;
     winPanel.hidden = true;
     say('Game stopped. Choose Restart deal to replay this deal, or New shuffle to mix the cards.');
+    render();
+  }
+
+  // End game: stop play and record a loss (W/L and the moves). Like Quit, it can't be undone.
+  function endGame() {
+    if (busy || !inPlay()) return;
+    addToken(G.resultToken(record || [], false));
+    closed = true;
+    drag = null;
+    winPanel.hidden = true;
+    say('Game ended and recorded as a loss. Choose Restart deal to replay this deal, or New shuffle to mix the cards.');
     render();
   }
 
@@ -1301,6 +1408,7 @@
   slots.stock.addEventListener('click', drawFromStock);
   newBtn.addEventListener('click', newShuffle);
   quitGameBtn.addEventListener('click', quitGame);
+  endGameBtn.addEventListener('click', endGame);
   confirmContinue.addEventListener('click', () => closeConfirm(true));
   confirmCancel.addEventListener('click', () => closeConfirm(false));
   // Keep keyboard focus inside the dialog while it's open; Escape does not dismiss it.

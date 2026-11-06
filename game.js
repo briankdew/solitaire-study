@@ -270,31 +270,33 @@
     return Math.min(drawOf(state), state.waste.length);
   }
 
+  /** True when some stock or waste cards can't be seen, so turning the stock would show something new. */
+  function hasHiddenWaste(state) {
+    return !state.pending && (state.stock.length > 0 || state.waste.length > fanSize(state));
+  }
+
   /**
    * Turn the game's draw count of cards (or what's left) from the stock onto
-   * the waste. With the stock empty, turn the whole waste back over to form
-   * the stock again (unlimited passes). Returns null when there is nothing to do.
+   * the waste. With the stock empty, the stock and waste act as one pile:
+   * the waste is turned back over and the next cards are turned up in the
+   * same action (unlimited passes). Returns null when nothing would change,
+   * because every remaining stock and waste card is already showing.
    */
   function draw(state) {
-    if (state.pending) return null;
+    if (!hasHiddenWaste(state)) return null;
     const s = clone(state);
-    if (s.stock.length) {
-      const n = Math.min(drawOf(s), s.stock.length);
-      for (let i = 0; i < n; i++) {
-        const card = s.stock.pop();
-        card.faceUp = true;
-        s.waste.push(card);
-      }
-      s.wasteFan = fanSize(s);
-      return s;
-    }
-    if (s.waste.length) {
+    if (!s.stock.length) {
       s.stock = s.waste.reverse().map((card) => ({ ...card, faceUp: false }));
       s.waste = [];
-      s.wasteFan = 0;
-      return s;
     }
-    return null;
+    const n = Math.min(drawOf(s), s.stock.length);
+    for (let i = 0; i < n; i++) {
+      const card = s.stock.pop();
+      card.faceUp = true;
+      s.waste.push(card);
+    }
+    s.wasteFan = fanSize(s);
+    return s;
   }
 
   /** Foundation index that will take this card: same suit first, else the leftmost empty slot for an Ace. */
@@ -407,8 +409,14 @@
    *   move  — card moved (the bottom card of a run) + destination, then the
    *           source's new top card + source; -- when the source is now empty:
    *           ADhACb, 2Dh--w
+   *   result — W or L and the number of moves, at the end of a finished game: W104, L34
    * The deal is written as a turn token followed by one deal token per column.
-   * Turning the waste back over writes nothing: the next turn implies it.
+   * A turn with the stock empty also turns the waste back over first; the
+   * token names the cards turned up, as for any other turn.
+   *
+   * Turn tokens and moves from the waste also carry `fan`: every waste card
+   * showing afterwards, left to right. The official text doesn't use it; the
+   * app's record panel shows it.
    */
   const COLUMN_LETTERS = 'abcdefg';
   const RANK_OF = Object.fromEntries(Object.entries(RANK_LABEL).map(([rank, l]) => [l, Number(rank)]));
@@ -429,16 +437,22 @@
    * or null when nothing was turned up (the waste was turned back over).
    */
   function turnToken(prev, next) {
-    if (!next || (prev && !prev.stock.length)) return null;
-    const before = prev ? prev.waste.length : 0;
+    if (!next) return null;
+    // With the stock empty, the waste was turned back over before the new cards came up.
+    const before = prev && prev.stock.length ? prev.waste.length : 0;
     const cards = next.waste.slice(before).map((c) => c.id);
-    return cards.length ? { type: 'turn', cards } : null;
+    return cards.length ? { type: 'turn', cards, fan: fanIds(next) } : null;
+  }
+
+  /** Ids of the waste cards showing, left to right (the playable one last). */
+  function fanIds(state) {
+    return state.waste.slice(state.waste.length - fanSize(state)).map((c) => c.id);
   }
 
   /** Tokens for a game just dealt: the waste's turned cards, then each column's face-up card. */
   function dealTokens(state) {
     const tokens = [];
-    const turn = state.waste.length ? { type: 'turn', cards: state.waste.map((c) => c.id) } : null;
+    const turn = state.waste.length ? { type: 'turn', cards: state.waste.map((c) => c.id), fan: fanIds(state) } : null;
     if (turn) tokens.push(turn);
     state.tableau.forEach((col, i) => {
       if (col.length) tokens.push({ type: 'deal', card: top(col).id, to: COLUMN_LETTERS[i] });
@@ -453,13 +467,24 @@
     const card = pickUp(state, from)[0];
     const src = sourcePile(next, from);
     const t = top(src);
-    return { type: 'move', card: card.id, to: pileLetter(to), top: t ? t.id : null, from: pileLetter(from) };
+    const token = { type: 'move', card: card.id, to: pileLetter(to), top: t ? t.id : null, from: pileLetter(from) };
+    if (from.pile === 'waste') token.fan = fanIds(next);
+    return token;
+  }
+
+  /** Moves in a record: every move token (the deal and stock turns don't count). */
+  const movesIn = (tokens) => tokens.filter((t) => t.type === 'move').length;
+
+  /** The result token that ends a finished game: W or L and the number of moves. */
+  function resultToken(tokens, won) {
+    return { type: 'result', won: !!won, moves: movesIn(tokens) };
   }
 
   /** A token as text. `cardText` turns a card id into text (the official form is the id itself: 'XC'). */
   function tokenText(token, cardText = (id) => id) {
     if (token.type === 'turn') return token.cards.map(cardText).join('') + 'w';
     if (token.type === 'deal') return cardText(token.card) + token.to;
+    if (token.type === 'result') return (token.won ? 'W' : 'L') + token.moves;
     return cardText(token.card) + token.to + (token.top ? cardText(token.top) : '--') + token.from;
   }
 
@@ -472,7 +497,7 @@
    * The official game record, written the way it is by hand:
    *   Setup: 3223
    *   Deal: 2D2C3Cw 3Da ADb
-   *   Play: ADhACb ACh--b …
+   *   Play: ADhACb ACh--b … W7
    * `tokens` starts with the deal's tokens (one turn plus one per column).
    */
   function recordText(state, tokens) {
@@ -526,8 +551,12 @@
     locate,
     COLUMN_LETTERS,
     parseCard,
+    hasHiddenWaste,
+    fanIds,
     turnToken,
     dealTokens,
+    movesIn,
+    resultToken,
     moveToken,
     tokenText,
     setupText,

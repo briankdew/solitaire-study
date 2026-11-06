@@ -56,13 +56,25 @@ test('draw turns three cards; the last one turned is playable', () => {
   assert.ok(s.waste.every((c) => c.faceUp));
 });
 
-test('drawing from an empty stock turns the waste back over in its original order', () => {
-  const recycled = G.draw(SAMPLE());
-  assert.deepEqual(ids(recycled.stock), ['3S', '2D', 'AD']);
-  assert.ok(recycled.stock.every((c) => !c.faceUp));
-  assert.equal(recycled.waste.length, 0);
-  // Unlimited passes: the same three come up again.
-  assert.deepEqual(ids(G.draw(recycled).waste), ['AD', '2D', '3S']);
+test('with every stock and waste card showing, turning the stock changes nothing', () => {
+  // SAMPLE's three stock cards are all on the waste fan after the deal.
+  assert.equal(G.hasHiddenWaste(SAMPLE()), false);
+  assert.equal(G.draw(SAMPLE()), null);
+});
+
+test('with the stock empty, one turn turns the waste back over and turns up the next cards', () => {
+  // Waste (bottom to top): AS 2S 3S AD 2D; only 3S AD 2D show. Draw three.
+  const s = blank({ draw: 3, waste: ['AS', '2S', '3S', 'AD', '2D'].map((id) => C(id)) });
+  assert.equal(G.hasHiddenWaste(s), true);
+  const next = G.draw(s);
+  assert.deepEqual(ids(next.waste), ['AS', '2S', '3S'], 'the waste is turned over, then three come up in order');
+  assert.ok(next.waste.every((c) => c.faceUp));
+  assert.deepEqual(ids(next.stock), ['2D', 'AD']);
+  assert.ok(next.stock.every((c) => !c.faceUp));
+  // Unlimited passes: the next turn brings up the last two, then the cycle repeats.
+  const after = G.draw(next);
+  assert.deepEqual(ids(after.waste).slice(-2), ['AD', '2D']);
+  assert.deepEqual(ids(G.draw(after).waste), ['AS', '2S', '3S']);
 });
 
 test('draw returns null when stock and waste are both empty', () => {
@@ -579,14 +591,62 @@ test('notation: a foundation card brought back down', () => {
   assert.equal(G.tokenText(G.moveToken(s, H(0), T(0))), '2DaADh');
 });
 
-test('notation: a turn names only the cards turned up; turning the waste back over writes nothing', () => {
+test('notation: a turn names the cards turned up; its fan is every waste card showing', () => {
   const s = blank({ draw: 3, stock: [C('3C', false)], waste: [C('AD'), C('2D'), C('AC')] });
   const next = G.draw(s);
-  assert.equal(G.tokenText(G.turnToken(s, next)), '3Cw');
-  const recycled = G.draw(next);
-  assert.equal(G.turnToken(next, recycled), null);
-  const again = G.draw(recycled);
-  assert.equal(G.tokenText(G.turnToken(recycled, again)), 'AD2DACw');
+  const t = G.turnToken(s, next);
+  assert.equal(G.tokenText(t), '3Cw');
+  assert.deepEqual(t.fan, ['2D', 'AC', '3C']);
+  // Stock now empty: the next turn turns the waste over and brings up AD 2D AC in one token.
+  const again = G.draw(next);
+  assert.equal(G.tokenText(G.turnToken(next, again)), 'AD2DACw');
+  assert.deepEqual(G.turnToken(next, again).fan, ['AD', '2D', 'AC']);
+});
+
+test('notation: a move from the waste carries the fan left showing', () => {
+  let s = MOCKUP();
+  const t = G.moveToken(s, WASTE, T(1)); // not legal yet: b holds AD
+  assert.equal(t, null);
+  s = G.move(s, T(1), H(0));
+  s = G.move(s, T(1), H(1)); // b empty
+  const m = G.moveToken(s, WASTE, T(1));
+  assert.equal(G.tokenText(m), '3Cb2Cw');
+  assert.deepEqual(m.fan, ['2D', '2C']);
+});
+
+test('notation: the result token ends the Play line and counts move tokens only', () => {
+  let s = MOCKUP();
+  const tokens = G.dealTokens(s);
+  for (const [from, to] of [[T(1), H(0)], [T(1), H(1)], [WASTE, T(1)], [WASTE, H(1)], [WASTE, H(0)], [T(0), H(0)], [T(1), H(1)]]) {
+    tokens.push(G.moveToken(s, from, to));
+    s = G.move(s, from, to);
+  }
+  tokens.push(G.resultToken(tokens, G.isWon(s)));
+  assert.equal(G.tokenText(tokens[tokens.length - 1]), 'W7');
+  assert.ok(G.recordText(s, tokens).endsWith('3Ch--b W7'));
+  assert.equal(G.tokenText(G.resultToken(tokens.slice(0, 5), false)), 'L2');
+});
+
+test('automatic finish plays only straight to the foundations, one move per card', () => {
+  // Every card face up in descending runs; stock and waste empty. 4 suits, highest 3.
+  const run = (...idsList) => idsList.map((id) => C(id));
+  let s = {
+    highest: 3, draw: 3, stock: [], waste: [], wasteFan: 0,
+    tableau: [run('3S', '2H', 'AC'), run('3H', '2S'), run('3C', '2D', 'AS'), run('3D', '2C', 'AH'), run('AD')],
+    foundations: [[], [], [], []],
+  };
+  const remaining = 12;
+  let moves = 0;
+  while (G.canAutoFinish(s)) {
+    const m = G.nextAutoFinishMove(s);
+    assert.ok(m, 'never gets stuck');
+    assert.equal(m.from.pile, 'tableau');
+    assert.equal(m.to.pile, 'foundation');
+    s = G.move(s, m.from, m.to);
+    moves++;
+  }
+  assert.ok(G.isWon(s));
+  assert.equal(moves, remaining);
 });
 
 test('notation: an illegal move has no token', () => {
