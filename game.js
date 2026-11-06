@@ -276,6 +276,19 @@
   }
 
   /**
+   * The stock and waste with the waste turned back over: every waste card
+   * face down in the stock, in the order it will be turned up again. This is
+   * the first half of a draw from an empty stock.
+   */
+  function recycle(state) {
+    const s = clone(state);
+    s.stock = s.waste.reverse().map((card) => ({ ...card, faceUp: false }));
+    s.waste = [];
+    s.wasteFan = 0;
+    return s;
+  }
+
+  /**
    * Turn the game's draw count of cards (or what's left) from the stock onto
    * the waste. With the stock empty, the stock and waste act as one pile:
    * the waste is turned back over and the next cards are turned up in the
@@ -284,11 +297,7 @@
    */
   function draw(state) {
     if (!hasHiddenWaste(state)) return null;
-    const s = clone(state);
-    if (!s.stock.length) {
-      s.stock = s.waste.reverse().map((card) => ({ ...card, faceUp: false }));
-      s.waste = [];
-    }
+    const s = state.stock.length ? clone(state) : recycle(state);
     const n = Math.min(drawOf(s), s.stock.length);
     for (let i = 0; i < n; i++) {
       const card = s.stock.pop();
@@ -315,9 +324,8 @@
    * Where a click sends the playable waste card or a face-up column card
    * (with any cards on top of it). A foundation's top card goes to the
    * leftmost column that takes it, and nowhere else. Otherwise:
-   *   0. an Ace always goes straight to a foundation, otherwise
-   *   1. the leftmost other column that accepts it, otherwise
-   *   2. the foundation that accepts it (single cards only), otherwise null.
+   *   1. the foundation that accepts it (single cards only), otherwise
+   *   2. the leftmost other column that accepts it, otherwise null.
    * A run that already starts at the bottom of its column never moves to an
    * empty column, since that would change nothing.
    */
@@ -332,10 +340,24 @@
       }
       return null;
     }
-    if (cards.length === 1 && cards[0].rank === 1) {
+    if (cards.length === 1) {
       const f = foundationTargetFor(state, cards[0]);
       if (f >= 0) return { pile: 'foundation', index: f };
     }
+    return columnClickTarget(state, from);
+  }
+
+  /**
+   * The column a click would send the waste card or a face-up column card to
+   * if no foundation took it: the leftmost other column that accepts it, or
+   * null. A run that already starts at the bottom of its column never moves
+   * to an empty column. Used for the click to a foundation and for taking
+   * that click back to a column instead.
+   */
+  function columnClickTarget(state, from) {
+    if (!from || !['waste', 'tableau'].includes(from.pile)) return null;
+    const cards = pickUp(state, from);
+    if (!cards) return null;
     const fromCol = from.pile === 'tableau' ? from.index : -1;
     const wholeColumn = fromCol >= 0 && (from.cardIndex == null ? state.tableau[fromCol].length === 1 : from.cardIndex === 0);
     for (let col = 0; col < state.tableau.length; col++) {
@@ -343,9 +365,7 @@
       if (wholeColumn && !state.tableau[col].length) continue;
       if (canPlaceOnTableau(state, cards, col)) return { pile: 'tableau', index: col };
     }
-    if (cards.length !== 1) return null;
-    const f = foundationTargetFor(state, cards[0]);
-    return f >= 0 ? { pile: 'foundation', index: f } : null;
+    return null;
   }
 
   function wasteClickTarget(state) {
@@ -541,8 +561,10 @@
     isLegalMove,
     move,
     draw,
+    recycle,
     foundationTargetFor,
     clickTarget,
+    columnClickTarget,
     wasteClickTarget,
     foundationMoveFor,
     isWon,

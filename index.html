@@ -231,6 +231,16 @@
   .slot.stock.can-recycle .recycle { display: block; }
   /* The waste positions look like overlapping blank cards: felt-colored faces, so each covers the outline beneath it. */
   .slot.waste { border-style: dashed; background: var(--felt); }
+  /* Undo sits under column a: one card wide, centered on the column, its bottom level with the
+     bottom of the game record (placeUndo). Column a starts with one card, so it never reaches it. */
+  .undo-btn {
+    position: absolute; left: 0; top: 0; z-index: 50;
+    width: var(--cw);
+    padding: 7px 2px;
+    font-size: clamp(11px, calc(var(--cw) * 0.17), 0.9rem);
+    line-height: 1.1;
+    text-wrap: balance;
+  }
   .deal-btn {
     position: absolute; left: 0; top: 0; z-index: 50;
     transform: translate(-50%, -50%);
@@ -362,14 +372,18 @@
   }
   .steps::-webkit-scrollbar { display: none; }
   .steps:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+  /* Steps pin at both ends of the window: scrolled past the top, each slides up over the one pinned
+     there; scrolled past the bottom, each slides down over the one pinned there. Which tile covers
+     which is set by updateStacking() as the window scrolls. */
   .step {
-    position: sticky; top: 0;
+    position: sticky; top: 0; bottom: 0;
     display: grid; grid-template-columns: auto 1fr auto; column-gap: 0.8ch; align-items: baseline;
     padding: var(--step-pad) 0.5ch;
     background: var(--card);
     white-space: nowrap;
   }
-  /* Each step's top edge casts a shadow up onto the step above it. */
+  /* Each step's top edge casts a shadow up onto the step above it (its blur also reaches below it,
+     which is enough edge for a step sliding down over the one pinned at the bottom). */
   .step + .step { box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.25); }
   .step .lbl { grid-column: 1; grid-row: 1; font: 400 0.85em/1 'Archivo', var(--font-ui); color: #666666; }
   .step .cards { grid-column: 1 / 3; text-align: right; }   /* only a step's first line has a label beside it */
@@ -459,6 +473,8 @@
     <div class="play">
       <div class="table-wrap">
         <section class="board" id="board" aria-label="Card table"></section>
+        <!-- Under column a, where it is always clear of play (placeUndo). -->
+        <button class="btn undo-btn" id="undoBtn" type="button" disabled>Undo move</button>
         <div class="win" id="winPanel" hidden>
           <div class="win-card" role="dialog" aria-labelledby="winTitle">
             <h2 id="winTitle">You won</h2>
@@ -488,7 +504,6 @@
         <p class="hint" id="settingsHint"></p>
       </form>
       <div class="toolbar" aria-label="Game actions">
-        <button class="btn" id="undoBtn" type="button" disabled>Undo move</button>
         <button class="btn" id="restartBtn" type="button" disabled>Restart deal</button>
         <button class="btn" id="newBtn" type="button">New shuffle</button>
         <button class="btn" id="quitGameBtn" type="button">Quit</button>
@@ -501,17 +516,17 @@
           <li><b>Goal:</b> build each suit from Ace up to the highest card on the foundations at the top right.</li>
           <li><b>Shuffle, then deal:</b> shuffling only mixes the cards, which wait face down in the stock with a <b>Deal</b> button on the last waste position. Dealing puts them on the table to start play.</li>
           <li><b>Deal:</b> The columns get 1, 2, 3… cards with only the last one face up, and the first stock cards (as many as one turn takes) are turned over so a card is playable right away.</li>
-          <li><b>Stock:</b> click it to turn over more cards (as many as the <b>Draw</b> setting). The stock and waste work as one pile: once the stock runs out, the stock still shows a card back while any waste cards are hidden under the fan, and clicking it turns the waste back over and turns up the next cards in one go. When every remaining card is already showing, clicking it just shakes the waste. Once one turn or less is left in the real stock, its top card shows how many cards remain. The waste has one dashed position per card drawn and always shows that many of its top cards; only the top (rightmost) one can be played, and playing it slides the others right and brings up the next card. There is no limit on passes.</li>
+          <li><b>Stock:</b> click it to turn over more cards (as many as the <b>Draw</b> setting). The stock and waste work as one pile: once the stock runs out, it shows the refresh arrow while any waste cards are hidden under the fan, and clicking it turns the waste back over onto the stock and turns up the next cards in one go. When every remaining card is already showing, the stock is empty and clicking it just shakes the waste. Once one turn or less is left in the real stock, its top card shows how many cards remain. The waste has one dashed position per card drawn and always shows that many of its top cards; only the top (rightmost) one can be played, and playing it slides the others right and brings up the next card. There is no limit on passes.</li>
           <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only the highest card, or a run that starts with it.</li>
-          <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to the leftmost column that takes it, otherwise to its foundation. Cards on top of a clicked column card move with it. A clicked Ace always goes straight to a foundation.</li>
-          <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it.</li>
+          <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to its foundation if it can go there, otherwise to the leftmost column that takes it. Cards on top of a clicked column card move with it, and a group like that only goes to a column. If a click sends a card to its foundation when you meant a column, click it again on the foundation straight away: it goes to the column instead, as if it had gone there in the first place (the record is corrected, no move is added, and Undo puts it back where it started).</li>
+          <li><b>Click a foundation's top card</b> to bring it back down to the leftmost column that takes it (a new move, unless it is the take-back just described).</li>
           <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
           <li>Once every card is face up, the game finishes itself, unless <b>Auto-complete</b> is turned off; then you play every card yourself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
           <li><b>Settings:</b> the high card (the highest rank in each suit, 2 to K, with X for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. There are always at least as many columns as suits, so every highest card can head a column; 4 suits also need a highest card of 3 or more. Column counts that would leave no cards for the stock are unavailable.</li>
           <li><b>Moves</b> (numbered in the game record) count cards played to a column or foundation, including those the automatic finish plays. Turning the stock doesn't count.</li>
           <li><b>Undo move</b> takes back one action; it reads <b>Undo draw</b> when the last action was a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle. <b>End game</b> does the same and records the game as a loss.</li>
           <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>h</b> foundations, and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
-          <li><b>Game Record:</b> the panel on the left shows the game as it is played, one step per action, newest at the bottom; scroll it to look back. Each line is cards and then a pile letter. <b>D</b> is the deal: the waste cards showing, then each column's face-up card. A numbered step is a move: the card moved (the bottom card of a run) and where it went, then what now shows on the pile it came from and that pile's letter (<b>--</b> when it is empty). An unnumbered step is a turn of the stock, showing every waste card in view. Letters of your own moves are blue; the deal and the waste are gray. <b>EOP</b> ends a finished game: <b>W</b> (win) or <b>L</b> (loss, from End game) and the number of moves. Undo removes the last step.</li>
+          <li><b>Game Record:</b> the panel on the left shows the game as it is played, one step per action, newest at the bottom; scroll it to look back. Steps scrolled past either end stay pinned there, and the next step slides over them. Each line is cards and then a pile letter. <b>D</b> is the deal: the waste cards showing, then each column's face-up card. A numbered step is a move: the card moved (the bottom card of a run) and where it went, then what now shows on the pile it came from and that pile's letter (<b>--</b> when it is empty). An unnumbered step is a turn of the stock, showing every waste card in view. Letters of your own moves are blue; the deal and the waste are gray. <b>EOP</b> ends a finished game: <b>W</b> (win) or <b>L</b> (loss, from End game) and the number of moves. Undo removes the last step.</li>
           <li><b>Copy record</b> copies the official record, the notation used to write a game down by hand: suit letters (S H C D), every item a card then its pile letter, a move written as one token (<b>ADhACb</b>, <b>2Dh--w</b>), a stock turn naming the cards turned up (<b>8S4H9Dw</b>), and the result last (<b>W7</b>), under a <b>Setup</b> line of highest card, suits, columns and draw (e.g. 3223).</li>
           <li><b>Keyboard:</b> Tab to a card and press Enter to play it. Ctrl+Z undoes a move.</li>
         </ul>
@@ -567,6 +582,8 @@
   const copyRecordBtn = document.getElementById('copyRecordBtn');
 
   const AUTO_STEP_MS = 180;
+  const REFILL_LOCK_MS = 500; // after the refresh arrow, stock clicks are ignored this long (a reflex double click)
+  let stockLockedUntil = 0;   // a draw from the refresh arrow ignores stock clicks until its cards land
   const DRAG_THRESHOLD = 5;
   const SETTINGS_KEY = 'solitaire-study.settings';
   const AUTO_FINISH_KEY = 'solitaire-study.autoFinish';
@@ -809,14 +826,6 @@
   const labels = { stock: makeLabel('s'), waste: makeLabel('w'), found: makeLabel('h'), tab: [] };
   const COLUMN_LETTERS = G.COLUMN_LETTERS;
 
-  // A card back on the empty stock while waste cards are hidden under the fan: to the player the
-  // stock and waste are one pile, so there is always "more stock" until every card is showing.
-  const fakeStock = document.createElement('div');
-  fakeStock.className = 'card fake-stock';
-  fakeStock.innerHTML = '<div class="back" aria-hidden="true"></div>';
-  fakeStock.hidden = true;
-  board.appendChild(fakeStock);
-
   // Shown on the last waste position while a shuffled deck waits to be dealt.
   const dealBtn = document.createElement('button');
   dealBtn.type = 'button';
@@ -924,8 +933,9 @@
     const maxDown = Math.max(...G.COLUMN_CHOICES) - 1;
     const maxUp = Math.max(...G.HIGHEST_CHOICES);
     L.fixedHeight = tabY + maxDown * L.downDy + (maxUp - 1) * L.upDy + ch + 8;
-    board.style.setProperty('--cw', cw + 'px');
-    board.style.setProperty('--ch', ch + 'px');
+    // Set on the table's wrapper so the Undo button beside the board can size itself to a card too.
+    tableWrap.style.setProperty('--cw', cw + 'px');
+    tableWrap.style.setProperty('--ch', ch + 'px');
     place(slots.stock, L.stock);
     slots.wasteFan.forEach((el, i) => place(el, { x: L.waste.x + i * fanDx, y: L.waste.y }));
     const lastFan = (slots.wasteFan.length - 1) * fanDx; // offset of the last fan position
@@ -942,12 +952,13 @@
     layoutRecord();
   }
 
-  // The record's window is a whole number of move steps tall (a move step is two lines).
+  // The record's window is a whole number of move steps tall (a move step is two lines), less one waste step.
   // Beside the table, the title lines up with the High card label across the table and the
   // record fills the space down to the bottom of the table. Below the table (narrow screens)
   // it is as tall as the table from the top of the stock down.
   const STEP_LINE = 20, STEP_PAD = 3;
   const MOVE_STEP_H = 2 * STEP_LINE + 2 * STEP_PAD;
+  const TURN_STEP_H = STEP_LINE + 2 * STEP_PAD;   // a one-line waste step: the window is this much shorter
   const narrowLayout = window.matchMedia('(max-width: 1160px)');
   function layoutRecord() {
     if (!L.fixedHeight) return;
@@ -961,7 +972,21 @@
       room = board.getBoundingClientRect().top + L.fixedHeight - recordFrame.getBoundingClientRect().top;
     }
     const fit = Math.floor((room - bars - below) / MOVE_STEP_H);
-    stepsEl.style.height = Math.max(4, fit) * MOVE_STEP_H + 'px';
+    stepsEl.style.height = Math.max(4, fit) * MOVE_STEP_H - TURN_STEP_H + 'px';
+    measureSteps();
+    updateStacking();
+    placeUndo();
+  }
+
+  // Undo goes under column a, one card wide. Beside the table its bottom lines up with the bottom of
+  // the record's frame; below the table (narrow screens) it sits at the bottom of the play area.
+  const tableWrap = board.parentElement;
+  function placeUndo() {
+    const wrapTop = tableWrap.getBoundingClientRect().top;
+    const bottom = narrowLayout.matches
+      ? board.getBoundingClientRect().top - wrapTop + L.fixedHeight - 8
+      : recordFrame.getBoundingClientRect().bottom - wrapTop;
+    undoBtn.style.transform = `translate(${L.tab[0].x}px, ${Math.round(bottom - undoBtn.offsetHeight)}px)`;
   }
   narrowLayout.addEventListener('change', () => { if (L) layoutRecord(); });
   // Web fonts can change the labels' heights once they load, so line the title up again then.
@@ -973,29 +998,30 @@
   /* ---------- render ---------- */
 
   function render() {
+    const s = state;
     buildTable();
     const items = [];
-    state.stock.forEach((c, i) => {
+    s.stock.forEach((c, i) => {
       const d = Math.min(i, 3); // a little thickness, capped
-      items.push({ c, x: L.stock.x + d, y: L.stock.y - d, z: Z.stock + i, where: 'stock', buried: i < state.stock.length - 3 });
+      items.push({ c, x: L.stock.x + d, y: L.stock.y - d, z: Z.stock + i, where: 'stock', buried: i < s.stock.length - 3 });
     });
     // The waste's top cards (one per card drawn) fill the fan positions from the left; the top one is playable.
-    const drawN = G.drawOf(state);
-    const fanStart = state.waste.length - Math.min(drawN, state.waste.length);
-    state.waste.forEach((c, i) =>
+    const drawN = G.drawOf(s);
+    const fanStart = s.waste.length - Math.min(drawN, s.waste.length);
+    s.waste.forEach((c, i) =>
       items.push({
         c, x: L.waste.x + Math.max(0, i - fanStart) * L.fanDx, y: L.waste.y, z: Z.waste + i, where: 'waste', buried: i < fanStart - 1,
-        grab: i === state.waste.length - 1, playable: i === state.waste.length - 1,
+        grab: i === s.waste.length - 1, playable: i === s.waste.length - 1,
       }));
-    state.foundations.forEach((pile, f) => pile.forEach((c, i) =>
+    s.foundations.forEach((pile, f) => pile.forEach((c, i) =>
       items.push({ c, x: L.found[f].x, y: L.found[f].y, z: Z.foundation + i, where: 'f' + f, grab: i === pile.length - 1, buried: i < pile.length - 2 })));
     let bottom = L.tabY + L.ch + 3 * L.upDy;
-    state.tableau.forEach((col, t) => {
+    s.tableau.forEach((col, t) => {
       let y = L.tab[t].y;
       col.forEach((c, i) => {
         items.push({
           c, x: L.tab[t].x, y, z: Z.tableau + i, where: 't' + t,
-          grab: !!G.pickUp(state, { pile: 'tableau', index: t, cardIndex: i }),
+          grab: !!G.pickUp(s, { pile: 'tableau', index: t, cardIndex: i }),
         });
         bottom = Math.max(bottom, y + L.ch);
         y += c.faceUp ? L.upDy : L.downDy;
@@ -1029,35 +1055,36 @@
     }
 
     // Like a stock held in the hand: once one turn or less is left, the top card shows how many.
-    const left = state.pending ? 0 : state.stock.length;
-    for (const c of state.stock.concat(state.waste)) cardEls.get(c.id).lastElementChild.removeAttribute('data-left');
-    if (left > 0 && left <= drawN) cardEls.get(top(state.stock).id).lastElementChild.dataset.left = left;
+    const left = s.pending ? 0 : s.stock.length;
+    for (const c of s.stock.concat(s.waste)) cardEls.get(c.id).lastElementChild.removeAttribute('data-left');
+    if (left > 0 && left <= drawN) cardEls.get(top(s.stock).id).lastElementChild.dataset.left = left;
 
     board.classList.toggle('closed', closed);
-    dealBtn.hidden = closed || !state.pending;
-    const canRecycle = !closed && !state.stock.length && state.waste.length > 0;
+    dealBtn.hidden = closed || !s.pending;
+    // An empty stock shows the refresh arrow while turning the waste over would show something new.
+    const canRecycle = !closed && !s.stock.length && G.hasHiddenWaste(s);
     slots.stock.classList.toggle('can-recycle', canRecycle);
-    fakeStock.hidden = state.pending || state.stock.length > 0 || !G.hasHiddenWaste(state);
-    if (!fakeStock.hidden) { place(fakeStock, L.stock); fakeStock.style.zIndex = Z.stock; }
-    slots.stock.disabled = closed || busy || state.pending || (!state.stock.length && !state.waste.length);
+    slots.stock.disabled = closed || busy || s.pending || (!s.stock.length && !s.waste.length);
     slots.stock.setAttribute('aria-label',
-      state.stock.length
-        ? `Draw ${Math.min(drawN, state.stock.length)} ${Math.min(drawN, state.stock.length) === 1 ? 'card' : 'cards'}` +
+      s.stock.length
+        ? `Draw ${Math.min(drawN, s.stock.length)} ${Math.min(drawN, s.stock.length) === 1 ? 'card' : 'cards'}` +
           (left > 0 && left <= drawN ? `, ${left} left in the stock` : '')
-        : G.hasHiddenWaste(state) ? `Turn the waste over and draw ${Math.min(drawN, state.waste.length)}` : 'No more cards to turn up');
+        : G.hasHiddenWaste(s) ? `Turn the waste over and draw ${Math.min(drawN, s.waste.length)}` : 'No more cards to turn up');
 
     renderRecord();
     undoBtn.disabled = closed || busy || !history.length;
     // A draw is the only action that doesn't add a move, so the button names what it would take back.
     const lastAction = history[history.length - 1];
-    undoBtn.textContent = lastAction && lastAction.moves === moves ? 'Undo draw' : 'Undo move';
+    const undoText = lastAction && lastAction.moves === moves ? 'Undo draw' : 'Undo move';
+    if (undoBtn.textContent !== undoText) { undoBtn.textContent = undoText; placeUndo(); }
     restartBtn.disabled = busy || !shuffleState || (!closed && (state.pending || !history.length));
     newBtn.disabled = busy;
     quitGameBtn.disabled = busy || closed;
     endGameBtn.disabled = busy || !inPlay();
   }
 
-  function say(msg) { statusEl.textContent = msg || ''; }
+  // With nothing else to say, a game in play shows "Good luck!" rather than an empty line.
+  function say(msg) { statusEl.textContent = msg || (inPlay() ? 'Good luck!' : ''); }
 
   /* ---------- game record ---------- */
 
@@ -1142,8 +1169,42 @@
     [...stepsEl.children].slice(same).forEach((el) => el.remove());
     for (const step of steps.slice(same)) stepsEl.appendChild(stepEl(step));
     shownKeys = steps.map((st) => st.key);
+    measureSteps();
+    updateStacking();
     stepsEl.scrollTo({ top: stepsEl.scrollHeight, behavior: fresh || reduceMotion.matches ? 'auto' : 'smooth' });
   }
+
+  // Each step's place in the record when nothing is pinned (sticky steps report where they are
+  // pinned, so this is worked out from the heights).
+  let stepSpans = [];
+  function measureSteps() {
+    let y = 0;
+    stepSpans = [...stepsEl.children].map((el) => { const t = y; y += el.offsetHeight; return { t, b: y }; });
+  }
+
+  // Stacking, like the steps of an escalator at both ends. Normally a later step is in front of an
+  // earlier one, so each casts its shadow up onto the step above it and slides up over the step
+  // pinned at the top. Steps pinned at the bottom go the other way: each is behind the one before
+  // it, so the step just above them slides down over them. `peak`, the step just above the bottom
+  // stack, is in front of both neighbours; z-index falls off by one for each step away from it.
+  function updateStacking() {
+    const els = stepsEl.children;
+    const n = els.length;
+    if (stepSpans.length !== n) measureSteps();
+    const top = stepsEl.scrollTop, bottom = top + stepsEl.clientHeight;
+    let pinnedTop = -1, pinnedBottom = n;
+    stepSpans.forEach((sp, i) => {
+      if (sp.t < top - 0.5) pinnedTop = i;                            // the last step pinned at the top
+      if (pinnedBottom === n && sp.b > bottom + 0.5) pinnedBottom = i; // the first one pinned at the bottom
+    });
+    const peak = Math.max(pinnedTop + 1, pinnedBottom - 1);
+    for (let i = 0; i < n; i++) {
+      const el = els[i];
+      const z = String(n - Math.abs(i - peak) + 1);
+      if (el.style.zIndex !== z) el.style.zIndex = z;
+    }
+  }
+  stepsEl.addEventListener('scroll', updateStacking, { passive: true });
 
   async function copyRecord() {
     if (!record || !record.length) return;
@@ -1203,28 +1264,59 @@
 
   // With every stock and waste card already showing, turning the stock changes nothing:
   // the waste shakes, and nothing is recorded or added to Undo.
+  // From an empty stock (the refresh arrow), the waste is turned back over and the next cards come
+  // up in one go: the refilled stock and the new waste show together. Stock clicks are ignored for
+  // a moment while the cards slide into place, so a quick second click can't draw again.
   function drawFromStock() {
-    if (busy || closed) return;
+    if (busy || closed || performance.now() < stockLockedUntil) return;
     const next = G.draw(state);
     if (!next) { G.fanIds(state).forEach(shake); return; }
+    const refill = !state.stock.length;
     commit(next, '', false, G.turnToken(state, next));
+    if (refill) stockLockedUntil = performance.now() + REFILL_LOCK_MS;
   }
 
   // Click rules (see G.clickTarget): the top waste card and face-up column cards
-  // (with the cards on top of them) go to the leftmost column that takes them,
-  // otherwise their foundation, and an Ace always goes to a foundation. A
+  // (with the cards on top of them) go to their foundation when a single card
+  // can go there, otherwise to the leftmost column that takes them. A
   // foundation's top card comes back down to the leftmost column that takes it.
   function playByClick(from) {
     if (closed || !['waste', 'tableau', 'foundation'].includes(from.pile)) return;
     const cards = G.pickUp(state, from);
     if (!cards) return;
+    if (from.pile === 'foundation' && retakeToColumn(cards[0])) return;
     const to = G.clickTarget(state, from);
-    if (to && tryMove(from, to)) return;
+    if (to && tryMove(from, to)) {
+      // Remember a click that went to a foundation, so clicking the card again can send it to a column instead.
+      if (to.pile === 'foundation') history[history.length - 1].foundationClick = { id: cards[0].id, from };
+      return;
+    }
     shake(cards[0].id);
     if (from.pile === 'foundation') return say(`No column can take the ${G.label(cards[0])} right now.`);
     say(cards.length > 1
       ? `The ${G.label(cards[0])} and the cards on it have nowhere to go yet.`
       : `The ${G.label(cards[0])} has nowhere to go yet.`);
+  }
+
+  // A click that sent a card to a foundation, followed straight away by a click on that card there,
+  // means the player wanted the column: the foundation move is rewritten as the move to the column
+  // the click would otherwise have chosen. It replaces that move in the record and in Undo (Undo then
+  // puts the card back where it was first), and it doesn't count as another move.
+  function retakeToColumn(card) {
+    const last = history[history.length - 1];
+    const fc = last && last.foundationClick;
+    if (!fc || fc.id !== card.id || moves !== last.moves + 1) return false;
+    const to = G.columnClickTarget(last.state, fc.from);
+    const next = to && G.move(last.state, fc.from, to);
+    if (!next) return false;
+    delete last.foundationClick;
+    if (record && last.recLen != null) record.length = last.recLen;
+    addToken(G.moveToken(last.state, fc.from, to));
+    state = next;
+    suppressAuto = false;
+    say('');
+    afterChange();
+    return true;
   }
 
   function runAutoFinish() {
@@ -1296,7 +1388,7 @@
     suppressAuto = false;
     closed = false;
     winPanel.hidden = true;
-    say('Same shuffle dealt again.');
+    say('Same shuffle dealt again. Good luck!');
     render();
   }
 
@@ -1331,6 +1423,7 @@
   function undo() {
     if (closed || busy || modalOpen() || !history.length) return;
     const prev = history.pop();
+    stockLockedUntil = 0;
     state = prev.state;
     moves = prev.moves;
     if (record && prev.recLen != null) record.length = prev.recLen;

@@ -31,10 +31,10 @@ The deck is every rank from Ace to the highest card in each suit, so K with 4 su
 
 | Action | Result |
 | --- | --- |
-| Click the stock | Turn over the next 1–4 cards (the **Draw** setting). Once the stock runs out it still shows a card back while waste cards are hidden, and a click turns the waste over and turns up the next cards in one go; with every card showing, a click just shakes the waste |
-| Click the top waste card | Play it to the leftmost column that takes it, otherwise to its foundation |
+| Click the stock | Turn over the next 1–4 cards (the **Draw** setting). Once the stock runs out it shows the refresh arrow while waste cards are hidden, and a click turns the waste back over onto the stock and turns up the next cards in one go; with every card showing, the stock is empty and a click just shakes the waste |
+| Click the top waste card | Play it to its foundation if it can go there, otherwise to the leftmost column that takes it |
 | Click a face-up column card | Same rule; the cards on top of it move with it as a group (a group can only go to a column) |
-| Click an Ace (waste or column) | Always goes straight to a foundation, even if a column could take it |
+| Click a card again on the foundation, right after a click sent it there | Send it to the column the click would otherwise have chosen instead: the record's foundation move is rewritten as the column move, no move is added, and Undo puts the card back where it started |
 | Click a foundation's top card | Bring it back down to the leftmost column that takes it |
 | Drag a face-up card | Move it, along with the cards on top of it, to a column or foundation |
 | Enter on a focused card | Same as clicking it |

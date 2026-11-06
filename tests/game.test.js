@@ -77,6 +77,15 @@ test('with the stock empty, one turn turns the waste back over and turns up the 
   assert.deepEqual(ids(G.draw(after).waste), ['AS', '2S', '3S']);
 });
 
+test('recycle turns the waste back over into the stock, ready to turn up in the same order', () => {
+  const s = blank({ draw: 3, waste: ['AS', '2S', '3S', 'AD'].map((id) => C(id)), wasteFan: 3 });
+  const r = G.recycle(s);
+  assert.deepEqual(ids(r.stock), ['AD', '3S', '2S', 'AS']);
+  assert.ok(r.stock.every((c) => !c.faceUp));
+  assert.deepEqual(r.waste, []);
+  assert.deepEqual(ids(G.draw(r).waste), ids(G.draw(s).waste)); // recycling first changes nothing about the draw
+});
+
 test('draw returns null when stock and waste are both empty', () => {
   assert.equal(G.draw(blank()), null);
 });
@@ -168,14 +177,14 @@ test('waste click: plays on the leftmost column that accepts the card', () => {
   assert.deepEqual(G.wasteClickTarget(onlyRight), { pile: 'tableau', index: 1 });
 });
 
-test('waste click: a column wins over a foundation', () => {
+test('waste click: a foundation wins over a column', () => {
   const s = blank({
     tableau: [[C('AD', false)], [C('3D')]],
     foundations: [[C('AS')], []],
     waste: [C('2S')],
     wasteFan: 1,
   });
-  assert.deepEqual(G.wasteClickTarget(s), { pile: 'tableau', index: 1 });
+  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 });
 });
 
 test('waste click: goes to the foundation when no column takes it', () => {
@@ -190,14 +199,16 @@ test('waste click: goes to the foundation when no column takes it', () => {
   assert.deepEqual(G.wasteClickTarget(ace), { pile: 'foundation', index: 0 });
 });
 
-test('waste click: a 3 goes to an empty column before a foundation', () => {
+test('waste click: a 3 goes to its foundation before an empty column', () => {
   const s = blank({
     tableau: [[C('2D', false)], []],
     foundations: [[C('AS'), C('2S')], []],
     waste: [C('3S')],
     wasteFan: 1,
   });
-  assert.deepEqual(G.wasteClickTarget(s), { pile: 'tableau', index: 1 });
+  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 });
+  const noFoundation = blank({ tableau: [[C('2D', false)], []], foundations: [[C('AS')], []], waste: [C('3S')], wasteFan: 1 });
+  assert.deepEqual(G.wasteClickTarget(noFoundation), { pile: 'tableau', index: 1 });
 });
 
 test('waste click: null when nothing can take the card', () => {
@@ -207,9 +218,11 @@ test('waste click: null when nothing can take the card', () => {
 
 /* ---------- click rules: column cards ---------- */
 
-test('column click: the top card goes to the other column before a foundation', () => {
+test('column click: the top card goes to its foundation before the other column', () => {
   const s = blank({ tableau: [[C('3D')], [C('3S', false), C('2S')]], foundations: [[C('AS')], []] });
-  assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'tableau', index: 0 });
+  assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 0 });
+  const noFoundation = blank({ tableau: [[C('3D')], [C('3S', false), C('2S')]] });
+  assert.deepEqual(G.clickTarget(noFoundation, T(1, 1)), { pile: 'tableau', index: 0 });
 });
 
 test('column click: the top card goes to its foundation when no column takes it', () => {
@@ -257,6 +270,17 @@ test('ace click: a column Ace goes to a foundation even when the other column co
   assert.equal(next.tableau[1][0].faceUp, true);
 });
 
+test('column click target: the column a foundation-bound card would go to otherwise', () => {
+  const s = blank({ tableau: [[C('3D')], [C('3S', false), C('2S')]], foundations: [[C('AS')], []] });
+  assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 0 });
+  assert.deepEqual(G.columnClickTarget(s, T(1, 1)), { pile: 'tableau', index: 0 });
+  const w = blank({ tableau: [[C('3D')], [C('3S')]], foundations: [[C('AS')], []], waste: [C('2S')], wasteFan: 1 });
+  assert.deepEqual(G.columnClickTarget(w, WASTE), { pile: 'tableau', index: 0 });
+  const none = blank({ tableau: [[C('3S')], [C('2D', false), C('2S')]], foundations: [[C('AS')], []] });
+  assert.equal(G.columnClickTarget(none, T(1, 1)), null);
+  assert.equal(G.columnClickTarget(none, F(0)), null); // only waste and column cards
+});
+
 test('clicking a stock card has no target', () => {
   const s = blank({ stock: [C('2D', false)] });
   assert.equal(G.clickTarget(s, { pile: 'stock', index: 0 }), null);
@@ -302,7 +326,8 @@ test('a scripted deal plays through to a win, with an automatic finish at the en
   s = G.move(s, T(0), { pile: 'foundation', index: 0 });              // A♠ up
   s = G.move(s, T(1), G.clickTarget(s, T(1, 1)));                     // 2♠ clicked -> foundation, 3♦ flips
   assert.deepEqual(ids(s.foundations[0]), ['AS', '2S']);
-  s = G.move(s, WASTE, G.wasteClickTarget(s));                        // 3♠ -> empty col 1
+  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 }); // a click would send 3♠ up
+  s = G.move(s, WASTE, T(0));                                          // 3♠ dragged to empty col 1
   assert.deepEqual(ids(s.tableau[0]), ['3S']);
   s = G.move(s, WASTE, G.wasteClickTarget(s));                        // 2♦ -> on 3♠
   assert.deepEqual(ids(s.tableau[0]), ['3S', '2D']);
