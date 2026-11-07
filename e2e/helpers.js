@@ -1,21 +1,29 @@
 // Shared steps for the browser tests.
-const { expect } = require('@playwright/test');
+const base = require('@playwright/test');
+const { expect } = base;
+
+/** Playwright's test, failing any test whose page throws or logs an error. */
+const test = base.test.extend({
+  page: async ({ page }, use) => {
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    await use(page);
+    expect(errors, 'errors on the page').toEqual([]);
+  },
+});
 
 /**
  * Open the page with a repeatable Math.random (so a "random" shuffle is the same every run),
- * fail the test on any page error, and wait for the waiting shuffle's Deal button.
+ * and wait for the waiting shuffle's Deal button.
  */
 async function openApp(page, { seed = 1 } = {}) {
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.addInitScript((s) => {
     let x = s >>> 0 || 1;
     Math.random = () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
   }, seed);
   await page.goto('/index.html');
   await expect(page.locator('.deal-btn')).toBeVisible();
-  return errors;
 }
 
 /** Choose a deal from the Custom shuffle menu (1-12), or 0 for Random. */
@@ -49,4 +57,4 @@ async function dragTo(page, from, to) {
   await settle(page);
 }
 
-module.exports = { openApp, pickShuffle, deal, settle, card, foundation, recordText, status, dragTo };
+module.exports = { test, expect, openApp, pickShuffle, deal, settle, card, foundation, recordText, status, dragTo };

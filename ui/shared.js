@@ -1,5 +1,6 @@
 // Shared by every module: the game rules (G), settings and timing constants, the game's
-// changing state (S), and small helpers.
+// changing state (S), and small helpers, including the status line (say).
+import { statusEl } from './dom.js';
 
 /** The game's changing state, shared by the modules. */
 export const S = {
@@ -47,3 +48,11 @@ export const rankLabel = (rank) => G.RANK_LABEL[rank];
 export const withArticle = (rank) => (rank === 8 ? 'an ' : 'a ') + rankLabel(rank);
 /** The setup code (the record header): highest card, suits, columns, draw, as G.setupText writes it. */
 export const setupCode = () => rankLabel(S.settings.highest) + S.settings.suits + S.settings.columns + S.settings.draw;
+
+/** A dealt game that hasn't been won or quit. */
+export function inPlay() {
+  return !!S.state && !S.state.pending && !S.closed && !G.isWon(S.state);
+}
+
+// With nothing else to say, a game in play shows "Good luck!" rather than an empty line.
+export function say(msg) { statusEl.textContent = msg || (inPlay() ? 'Good luck!' : ''); }

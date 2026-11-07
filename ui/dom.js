@@ -29,6 +29,4 @@ export const stepsEl = document.getElementById('steps');
 export const endGameBtn = document.getElementById('endGameBtn');
 export const copyRecordBtn = document.getElementById('copyRecordBtn');
 
-// Undo goes under column a, one card wide. Beside the table its bottom lines up with the bottom of
-// the record's frame; below the table (narrow screens) it sits at the bottom of the play area.
 export const tableWrap = board.parentElement;

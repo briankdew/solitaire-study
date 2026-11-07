@@ -1,7 +1,6 @@
 // The Game Record panel and Copy record.
-import { G, S } from './shared.js';
+import { G, S, say } from './shared.js';
 import { copyRecordBtn, stepsEl } from './dom.js';
-import { say } from './actions.js';
 
 /* ---------- game record ---------- */
 

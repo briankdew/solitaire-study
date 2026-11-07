@@ -96,7 +96,8 @@ npm test
 The page itself is tested in a headless browser with Playwright: shuffling and dealing, clicks, drags, the keyboard, Undo, the record, Copy record, the settings and the layout at four widths. `Math.random` is seeded in these tests, so a random shuffle comes out the same every run.
 
 ```sh
-npm install          # once: installs Playwright (1.64.1)
+npm install                      # once: installs Playwright (1.64.1)
+npx playwright install chromium  # once: its browser (skipped if already downloaded)
 npm run test:e2e
 ```
 

@@ -1,9 +1,9 @@
 // Starting the page, and keeping a game in progress when the page updates on claude.ai.
-import { G, S, SAVE_RULES } from './shared.js';
+import { G, S, SAVE_RULES, say } from './shared.js';
 import { board } from './dom.js';
 import { shuffledMessage, syncSettingsUI } from './settings.js';
 import { render } from './table.js';
-import { prepareNewShuffle, say, showWin } from './actions.js';
+import { prepareNewShuffle, showWin } from './actions.js';
 import './input.js';   // only adds listeners, so nothing else imports it
 
 /* ---------- start ---------- */
