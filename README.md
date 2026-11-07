@@ -1,6 +1,6 @@
 # n-Card Solitaire
 
-A small Klondike-style solitaire for learning how the game works, with a deck you can size from 4 to 52 cards. The default game uses six cards, the A, 2 and 3 of clubs and diamonds. Cards are turned from the stock one to four at a time (three by default), and an empty column accepts the **highest card** (a 3 in the six-card game) instead of a King.
+A small Klondike-style solitaire for learning how the game works, with a deck you can size from 4 to 52 cards. The default game uses six cards, the A, 2 and 3 of spades and hearts. Cards are turned from the stock one to four at a time (three by default), and an empty column accepts the **highest card** (a 3 in the six-card game) instead of a King.
 
 It's a single static web page with no build step and no dependencies.
 
@@ -9,21 +9,23 @@ It's a single static web page with no build step and no dependencies.
 | Setting | Options | Default |
 | --- | --- | --- |
 | High card | 2, 3, 4 … 9, X, J, Q, K (X is ten) | 3 |
-| Suits | 2 (♣♦) or 4 (♠♥♣♦) | 2 |
+| Suits | 2 (♠♥) or 4 (♠♥♣♦) | 2 |
 | Columns | 2, 3, 4, 5, 6, 7 (at least one per suit) | 2 |
 | Draw | 1, 2, 3 or 4 cards turned from the stock at a time | 3 |
+| Custom shuffle | Random, or a numbered deal (sets the other settings to the deal's, with Draw 3) | Random |
 | Auto-complete | On or off | On |
 
-The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices. There are always at least as many columns as suits. The highest card can only go to an empty column or a foundation, so with fewer columns than suits some highest cards could never head a column, and the game would play differently from normal solitaire. A column count is also unavailable if the deal would leave no cards for the stock; the settings line shows what each one needs. With 2 suits, 3 columns needs a highest card of 4 or more, 4 needs 6, 5 needs 8 and 6 needs J; 7 columns needs 4 suits. With 4 suits, columns start at 4, which needs a highest card of 3 or more (so 4 suits can't use a highest card of 2); 5 needs 4, 6 needs 6 and 7 needs 8.
+The deck is every rank from Ace to the highest card in each suit, so K with 4 suits is a full 52-card deck. Changing a setting shuffles a new deck for the new settings (with the same warning as **New shuffle** if a game is in play). The browser remembers your choices (except Custom shuffle, which belongs to the shuffle, not the settings). **Custom shuffle** lists numbered deals, each written left to right from the top of the deck; choosing one changes the other settings to the ones it is listed for, with Draw 3, and shuffles the deck into exactly that order, with the same warning as **New shuffle** if a game is in play. The list has the 12 deals of the 4-card deck (high card 2, 2 suits, 2 columns): trading the two suits throughout a deal gives the same game, so its 24 orders make 12 different games, and the list keeps one of each pair. More lists can be added to `SHUFFLE_LISTS` in `game.js`. When a random shuffle matches a listed deal, the menu shows its number. There are always at least as many columns as suits. The highest card can only go to an empty column or a foundation, so with fewer columns than suits some highest cards could never head a column, and the game would play differently from normal solitaire. A column count is also unavailable if the deal would leave no cards for the stock; the settings line shows what each one needs. With 2 suits, 3 columns needs a highest card of 4 or more, 4 needs 6, 5 needs 8 and 6 needs J; 7 columns needs 4 suits. With 4 suits, columns start at 4, which needs a highest card of 3 or more (so 4 suits can't use a highest card of 2); 5 needs 4, 6 needs 6 and 7 needs 8.
 
 ## Rules
 
 - **Shuffle, then deal:** shuffling only mixes the cards. A shuffled deck waits face down in the stock, with a **Deal** button on the last waste position, and nothing is dealt until you click it (or choose **Restart deal**, **New deal** or **Same deal**). The page opens with a shuffled deck waiting.
-- **Deal:** a staircase. Column 1 gets 1 card, column 2 gets 2, and so on, with only the last card in each column face up. The remaining cards form the stock, and the first ones (as many as one turn takes) are turned over onto the waste right away, so a card can be played immediately.
+- **Deal:** the standard Klondike deal, in rows from the top of the deck: one card to each column from left to right (only the first face up), then a row starting at column 2, and so on, so column 1 ends with 1 card, column 2 with 2, and so on, with only the last card in each column face up. The rest of the deck becomes the stock in the same order, so the next card off the deck is the next one turned, and the first ones (as many as one turn takes) are turned over onto the waste right away, so a card can be played immediately.
 - **Goal:** build each suit from Ace up to the highest card on the foundations (one per suit).
 - **Stock and waste:** the waste has one dashed position per card drawn (three in the default draw-three game), and its top cards always fill them from the left, with the top card on the right and the only one that can be played. Playing it slides the others right and brings the next card up into position 1; with fewer cards left than positions, they fill the positions from the left. Clicking the stock turns over as many cards as the **Draw** setting; when it's empty, a click turns the waste back over. Passes are unlimited. Once one turn or less is left in the stock (three or fewer cards when drawing three), the top card shows how many, the way you'd see it in your hand.
 - **Columns:** build down in alternating colors (red on black, black on red). An empty column takes only the highest card, or a run that starts with it.
-- **Foundations:** start with an Ace and build up by suit. A card on a foundation can be moved back to a column.
+- **Suit order:** the standard order is ♠ ♥ ♣ ♦ (alternating colors). Two suits are always ♠ and ♥; menus, foundations and lists show suits in this order.
+- **Foundations:** one per suit, left to right in the suit order, each marked with an A and its suit while empty. Each takes only its own suit's Ace and then builds up in that suit; an Ace dragged onto any foundation goes to its own. A card on a foundation can be moved back to a column.
 - **Pile names:** a letter above each pile names it for writing down play: **s** stock, **w** waste, **n** foundations, and **a**, **b**, **c**… the columns from left to right.
 - A face-down card flips over as soon as it's uncovered.
 
