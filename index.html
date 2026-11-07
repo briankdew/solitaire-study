@@ -618,6 +618,8 @@
   let stockLockedUntil = 0;   // a draw from the refresh arrow ignores stock clicks until its cards land
   const DRAG_THRESHOLD = 5;
   const SETTINGS_KEY = 'solitaire-study.settings';
+  // Raised whenever the rules change how a saved game deals or plays (2: row deal, suit order ♠ ♥ ♣ ♦).
+  const SAVE_RULES = 2;
   const AUTO_FINISH_KEY = 'solitaire-study.autoFinish';
   const Z = { stock: 100, waste: 200, foundation: 300, tableau: 400, moving: 1000, dragging: 3000 };
 
@@ -651,6 +653,8 @@
   const top = (pile) => pile[pile.length - 1];
   const rankLabel = (rank) => G.RANK_LABEL[rank];
   const withArticle = (rank) => (rank === 8 ? 'an ' : 'a ') + rankLabel(rank);
+  /** The setup code (the record header): highest card, suits, columns, draw, as G.setupText writes it. */
+  const setupCode = () => rankLabel(settings.highest) + settings.suits + settings.columns + settings.draw;
 
   /* ---------- settings ---------- */
 
@@ -686,7 +690,7 @@
   fillSelect(drawSel, G.DRAW_CHOICES, String);
   const suitsSel = makePicker(document.getElementById('suitsBtn'), document.getElementById('suitsList'), 'Suits', G.SUIT_CHOICES,
     (n) => `${n} <span class="suit-set">${G.SUITS_BY_COUNT[n].map((s) => `<span class="${s === 'H' || s === 'D' ? 'r' : 'b'}">${G.SUIT_SYMBOL[s]}</span>`).join('')}</span>`,
-    (n) => `${n} (${G.SUITS_BY_COUNT[n].map((s) => ({ S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' })[s]).join(', ')})`);
+    (n) => `${n} (${G.SUITS_BY_COUNT[n].map((s) => G.SUIT_NAME[s]).join(', ')})`);
 
   // Shuffle: Random (0) or a numbered preset deal (game.js SHUFFLE_LISTS), its cards left to right
   // from the top of the deck. The menu's value for a deal is its position in the list plus 1.
@@ -699,7 +703,7 @@
 
   /** Show the current shuffle's deal in the Shuffle menu if it's a listed one, otherwise Random. */
   function syncShufflePicker() {
-    shuffleSel.value = shuffleState ? G.shuffleIndexOf(shuffleState.deck, settings.highest, settings.suits) : 0;
+    shuffleSel.value = shuffleState ? G.shuffleIndexOf(shuffleState.deck, settings) : 0;
   }
 
   /** Status for a fresh random shuffle, naming its number if it is one of the listed deals. */
@@ -802,9 +806,7 @@
     if (tooBig.length) hints.push(`More columns need a bigger deck: ${tooBig.map(need).join(', ')}.`);
     settingsHint.textContent = hints.join(' ');
     const n = settings.highest * settings.suits;
-    // The setup code is the record header: highest card, suits, columns, draw (setupText).
-    const setup = rankLabel(settings.highest) + settings.suits + settings.columns + settings.draw;
-    ruleLine.textContent = `Setup ${setup} · ${n} Cards · Draw ${settings.draw} · Empty column takes ${withArticle(settings.highest)}`;
+    ruleLine.textContent = `Setup ${setupCode()} · ${n} Cards · Draw ${settings.draw} · Empty column takes ${withArticle(settings.highest)}`;
     syncShufflePicker();
   }
 
@@ -826,9 +828,9 @@
     say(`New deck of ${settings.highest * settings.suits} cards shuffled for ${settings.columns} columns. Click Deal to deal it.${note}`);
   }
 
-  // Shuffle for the current settings (randomly, or in the given order) and wait for the Deal button.
-  function prepareNewShuffle(order) {
-    state = order ? G.prepareDeck(order, settings) : G.prepareDeal(Math.random, settings);
+  // Shuffle for the current settings (randomly, unless a prepared shuffle is given) and wait for the Deal button.
+  function prepareNewShuffle(prepared) {
+    state = prepared || G.prepareDeal(Math.random, settings);
     shuffleState = state;
     syncShufflePicker();
     history = [];
@@ -860,13 +862,13 @@
     if (!v) { prepareNewShuffle(); say(shuffledMessage()); return; }
     // A deal sets the settings it was listed for, with Draw 3.
     const { n, deck, settings: wanted } = shuffleOptions[v - 1];
+    const prepared = G.prepareDeck(deck, wanted); // before anything changes, in case the list is wrong
     const changed = ['highest', 'suits', 'columns', 'draw'].some((k) => settings[k] !== wanted[k]);
     settings = { ...wanted };
     saveSettings();
     syncSettingsUI();
-    prepareNewShuffle(deck);
-    const setup = rankLabel(settings.highest) + settings.suits + settings.columns + settings.draw;
-    say(`Deal ${n} shuffled: ${deck.map(G.label).join(' ')}.${changed ? ` Settings changed to ${setup}.` : ''} Click Deal to start.`);
+    prepareNewShuffle(prepared);
+    say(`Deal ${n} shuffled: ${deck.map(G.label).join(' ')}.${changed ? ` Settings changed to ${setupCode()}.` : ''} Click Deal to start.`);
   }
   shuffleSel.addEventListener('change', onShuffleChange);
   document.getElementById('settingsForm').addEventListener('submit', (e) => e.preventDefault());
@@ -945,7 +947,8 @@
     slots.found = state.foundations.map((_, i) => {
       const suit = G.foundationSuit(state, i);
       const el = makeSlot('foundation', `<span class="found-mark">A<span class="found-suit">${G.SUIT_SYMBOL[suit]}</span></span>`);
-      el.setAttribute('aria-label', `${{ S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' }[suit]} foundation`);
+      const name = G.SUIT_NAME[suit];
+      el.setAttribute('aria-label', `${name[0].toUpperCase() + name.slice(1)} foundation`);
       return el;
     });
     slots.tab = state.tableau.map((_, i) => {
@@ -1519,8 +1522,8 @@
     const first = basePos.get(ids[0]);
     const r = { x: first.x + dx, y: first.y + dy, w: L.cw, h: L.ch };
     // An Ace dropped on any foundation goes to its own suit's foundation.
-    const cards = G.pickUp(state, from);
-    const aceTo = cards && cards.length === 1 && cards[0].rank === 1 ? G.foundationTargetFor(state, cards[0]) : -1;
+    const card = ids.length === 1 ? G.parseCard(ids[0]) : null;
+    const aceTo = card && card.rank === 1 ? G.foundationTargetFor(state, card) : -1;
     const candidates = [
       ...L.tab.map((p, i) => ({ to: { pile: 'tableau', index: i }, rect: { x: p.x, y: p.y, w: L.cw, h: L.height - p.y } })),
       ...L.found.map((p, i) => ({ to: { pile: 'foundation', index: aceTo >= 0 ? aceTo : i }, rect: { x: p.x, y: p.y, w: L.cw, h: L.ch } })),
@@ -1626,11 +1629,10 @@
     board.classList.add('no-anim');
     // Games saved with older names for ten used ids like "10C" or "TC".
     if (saved && saved.state) saved = JSON.parse(JSON.stringify(saved).replace(/"(?:10|T)([SHCD])"/g, '"X$1"'));
-    // Games saved before the suit order ♠ ♥ ♣ ♦ (clubs and diamonds for two suits, any Ace on any
-    // foundation) can't continue under the new rules, so they're dropped for a fresh shuffle.
-    const fits = (st) => !st || G.fitsSuitOrder(st);
-    if (saved && saved.state && !(fits(saved.state) && fits(saved.shuffleState) &&
-        (saved.history || []).every((h) => fits(h && h.state)))) saved = null;
+    // Games saved under older rules (column-by-column deal, upside-down stock, clubs and diamonds
+    // for two suits, any Ace on any foundation) can't be restarted or continued the same way, so
+    // they're dropped for a fresh shuffle.
+    if (saved && saved.rules !== SAVE_RULES) saved = null;
     if (saved && saved.state && Array.isArray(saved.history)) {
       state = saved.state;
       history = saved.history;
@@ -1656,7 +1658,7 @@
 
   // Keep the game in progress when the page is updated while open on claude.ai.
   const hot = window.claude && window.claude.hot;
-  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ state, history, record, moves, settings, shuffleState, closed }));
+  if (hot && typeof hot.snapshot === 'function') hot.snapshot(() => ({ rules: SAVE_RULES, state, history, record, moves, settings, shuffleState, closed }));
   if (hot && typeof hot.ready === 'function') hot.ready(start);
   else start((hot && hot.data) || {});
 })();
