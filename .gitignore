@@ -4,3 +4,5 @@ node_modules/
 .claude/
 .codex
 *.log
+test-results/
+playwright-report/
