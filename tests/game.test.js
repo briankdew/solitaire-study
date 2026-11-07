@@ -151,11 +151,10 @@ test('foundations follow the suit order: each empty one takes only its own Ace',
   });
 });
 
-test('fitsSuitOrder spots games saved with the old suits or foundation order', () => {
-  assert.equal(G.fitsSuitOrder(SAMPLE()), true);
-  assert.equal(G.fitsSuitOrder(blank({ tableau: [[C('AD')], []] })), false);         // diamonds in a 2-suit game
-  assert.equal(G.fitsSuitOrder(blank({ foundations: [[C('AH')], []] })), false);     // hearts on the spades foundation
-  assert.equal(G.fitsSuitOrder(G.prepareDeal(Math.random, { highest: 5, suits: 4, columns: 4 })), true);
+test('deal refuses a deck whose suits are not a standard set', () => {
+  assert.throws(() => G.deal(deckOf('AC', '2D', 'AD', '2C')));           // the old 2-suit set
+  assert.throws(() => G.deal(deckOf('AS', '2S', 'AH', '2H', 'AC', '2C'))); // 3 suits
+  assert.doesNotThrow(() => G.deal(deckOf('AS', '2H', 'AH', '2S')));
 });
 
 test('a card can move from a foundation back to a column', () => {
@@ -735,7 +734,7 @@ test('deal goes in rows, and the stock keeps deck order', () => {
 });
 
 test('preset shuffles: the 12 four-card deals, one from each suit-swap pair', () => {
-  const list = G.shuffleList(2, 2);
+  const list = G.presetShuffles().map((p) => p.deck);
   assert.equal(list.length, 12);
   const deckIds = ids(G.makeDeck(2, 2)).sort().join();
   const texts = list.map((d) => ids(d).join(' '));
@@ -743,11 +742,10 @@ test('preset shuffles: the 12 four-card deals, one from each suit-swap pair', ()
   assert.equal(new Set(texts).size, 12);
   const swap = (t) => t.replace(/[SH]/g, (x) => (x === 'S' ? 'H' : 'S'));
   for (const t of texts) assert.ok(!texts.includes(swap(t)), `${t} and its suit swap are both listed`);
-  assert.deepEqual(G.shuffleList(3, 2), []);
 });
 
 test('preset shuffles: deal 1 deals A♠ to a, A♥ over 2♠ in b, 2♥ to the waste', () => {
-  const p = G.prepareDeck(G.shuffleList(2, 2)[0], { highest: 2, suits: 2, columns: 2, draw: 3 });
+  const p = G.prepareDeck(G.presetShuffles()[0].deck, { highest: 2, suits: 2, columns: 2, draw: 3 });
   assert.equal(p.pending, true);
   const s = G.dealPending(p);
   assert.deepEqual(ids(s.tableau[0]), ['AS']);
@@ -757,9 +755,12 @@ test('preset shuffles: deal 1 deals A♠ to a, A♥ over 2♠ in b, 2♥ to the 
 });
 
 test('preset shuffles: shuffleIndexOf finds each deal, and 0 for others', () => {
-  G.shuffleList(2, 2).forEach((d, i) => assert.equal(G.shuffleIndexOf(d, 2, 2), i + 1));
-  assert.equal(G.shuffleIndexOf(deckOf('AH', '2S', 'AS', '2H'), 2, 2), 0); // deal 6 with the suits traded
-  assert.equal(G.shuffleIndexOf(deckOf('AS', '2S', '3S', 'AH', '2H', '3H'), 3, 2), 0);
+  const s2223 = { highest: 2, suits: 2, columns: 2, draw: 3 };
+  G.presetShuffles().forEach((p, i) => assert.equal(G.shuffleIndexOf(p.deck, s2223), i + 1));
+  assert.equal(G.shuffleIndexOf(deckOf('AH', '2S', 'AS', '2H'), s2223), 0); // deal 6 with the suits traded
+  assert.equal(G.shuffleIndexOf(deckOf('AS', '2S', '3S', 'AH', '2H', '3H'), { highest: 3, suits: 2, columns: 2, draw: 3 }), 0);
+  // A listed order under other settings isn't that deal: choosing it would change them.
+  assert.equal(G.shuffleIndexOf(deckOf('AS', '2S', 'AH', '2H'), { ...s2223, draw: 1 }), 0);
 });
 
 test('preset shuffles: each one carries its setup with Draw 3', () => {
@@ -768,7 +769,7 @@ test('preset shuffles: each one carries its setup with Draw 3', () => {
   all.forEach((p, i) => {
     assert.equal(p.n, i + 1);
     assert.deepEqual(p.settings, { highest: 2, suits: 2, columns: 2, draw: 3 });
-    assert.equal(G.shuffleIndexOf(p.deck, 2, 2), i + 1);
+    assert.equal(G.shuffleIndexOf(p.deck, p.settings), i + 1);
     assert.doesNotThrow(() => G.prepareDeck(p.deck, p.settings));
   });
 });

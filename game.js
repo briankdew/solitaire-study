@@ -124,7 +124,13 @@
   function deal(deck, options = {}) {
     const columns = options.columns || 2;
     const highest = Math.max(...deck.map((card) => card.rank));
-    const suitCount = new Set(deck.map((card) => card.suit)).size;
+    const suitSet = new Set(deck.map((card) => card.suit));
+    const suitCount = suitSet.size;
+    // Foundations take their suits from SUITS_BY_COUNT, so the deck must use exactly one of those sets.
+    const suits = SUITS_BY_COUNT[suitCount];
+    if (!suits || !suits.every((suit) => suitSet.has(suit))) {
+      throw new Error(`A deck needs the suits ${Object.values(SUITS_BY_COUNT).map((s) => s.join('')).join(' or ')}`);
+    }
     const c = deck.map((card) => ({ ...card, faceUp: false }));
     const tableau = Array.from({ length: columns }, () => []);
     let k = 0;
@@ -218,22 +224,15 @@
     })));
   }
 
-  /** The preset shuffles for a deck, as card lists (top card first); [] if it has none. */
-  function shuffleList(highest, suits) {
-    return SHUFFLE_LISTS.filter((l) => l.highest === highest && l.suits === suits)
-      .flatMap((l) => l.deals.map(toDeck));
-  }
-
-  /** A deck order's menu value (its position in presetShuffles() plus 1), or 0 if it isn't listed. */
-  function shuffleIndexOf(deck, highest, suits) {
+  /**
+   * A shuffle's menu value (its position in presetShuffles() plus 1), or 0 if it isn't a listed
+   * deal under these exact settings (columns and draw included, since choosing it sets them).
+   */
+  function shuffleIndexOf(deck, settings) {
     const text = deck.map((card) => card.id).join(' ');
-    let base = 0;
-    for (const list of SHUFFLE_LISTS) {
-      const i = list.highest === highest && list.suits === suits ? list.deals.indexOf(text) : -1;
-      if (i >= 0) return base + i + 1;
-      base += list.deals.length;
-    }
-    return 0;
+    const s = normalizeSettings(settings);
+    const same = (p) => ['highest', 'suits', 'columns', 'draw'].every((k) => p.settings[k] === s[k]);
+    return presetShuffles().findIndex((p) => same(p) && p.deck.map((card) => card.id).join(' ') === text) + 1;
   }
 
   /* ---------- rules ---------- */
@@ -378,20 +377,7 @@
   /** Foundation index that will take this card (its suit's foundation), or -1. */
   function foundationTargetFor(state, card) {
     if (!card) return -1;
-    const f = (SUITS_BY_COUNT[state.foundations.length] || []).indexOf(card.suit);
-    return f >= 0 && canPlaceOnFoundation(state, [card], f) ? f : -1;
-  }
-
-  /**
-   * True if a state uses the current suits and foundation order (games saved
-   * before ♠ ♥ ♣ ♦ used clubs and diamonds for two suits, and any foundation for any Ace).
-   */
-  function fitsSuitOrder(state) {
-    const suits = SUITS_BY_COUNT[state.foundations.length];
-    if (!suits) return false;
-    const piles = [state.stock, state.waste, state.deck || [], ...state.tableau];
-    return piles.every((pile) => pile.every((c) => suits.includes(c.suit))) &&
-      state.foundations.every((pile, f) => pile.every((c) => c.suit === suits[f]));
+    return state.foundations.findIndex((_, f) => canPlaceOnFoundation(state, [card], f));
   }
 
   /**
@@ -628,6 +614,7 @@
     DRAW_CHOICES,
     DEFAULT_SETTINGS,
     SUIT_SYMBOL,
+    SUIT_NAME,
     SUITS_BY_COUNT,
     RANK_LABEL,
     staircaseSize,
@@ -648,7 +635,6 @@
     SHUFFLE_LISTS,
     PRESET_DRAW,
     presetShuffles,
-    shuffleList,
     shuffleIndexOf,
     isRed,
     label,
@@ -663,7 +649,6 @@
     recycle,
     foundationTargetFor,
     foundationSuit,
-    fitsSuitOrder,
     clickTarget,
     columnClickTarget,
     wasteClickTarget,
