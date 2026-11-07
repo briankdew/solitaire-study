@@ -1,14 +1,12 @@
 // What a player sees and does: shuffling, dealing, clicks, drags, the record, settings and layout.
-const { test, expect } = require('@playwright/test');
-const { openApp, pickShuffle, deal, card, foundation, recordText, status, dragTo } = require('./helpers');
+const { test, expect, openApp, pickShuffle, deal, settle, card, foundation, recordText, status, dragTo } = require('./helpers');
 
 test.describe('start and custom shuffles', () => {
   test('opens with a shuffled deck waiting to be dealt, and no errors', async ({ page }) => {
-    const errors = await openApp(page);
+    await openApp(page);
     await expect(status(page)).toHaveText('Cards shuffled. Click Deal to start.');
     await expect(page.locator('#ruleLine')).toContainText('Setup 3223');
     await expect(page.locator('#undoBtn')).toBeDisabled();
-    expect(errors).toEqual([]);
   });
 
   test('picking deal 1 sets 2223 and deals A♠ / A♥ over 2♠ / 2♥', async ({ page }) => {
@@ -45,7 +43,7 @@ test.describe('start and custom shuffles', () => {
 
 test.describe('play', () => {
   test('clicks win deal 1: the record numbers moves and ends with W4', async ({ page }) => {
-    const errors = await openApp(page);
+    await openApp(page);
     await pickShuffle(page, 1);
     await deal(page);
     await card(page, 'AS').click();
@@ -56,7 +54,6 @@ test.describe('play', () => {
     await expect(page.locator('#winText')).toHaveText('In 4 moves.');
     await expect.poll(() => recordText(page)).toBe(
       'D A♠ a A♥ b 2♥ w 1 A♠ h -- a 2 A♥ h 2♠ b 3 2♠ h -- b 4 2♥ h -- w EOP W4');
-    expect(errors).toEqual([]);
   });
 
   test('an Ace dragged onto the other suit\'s foundation lands on its own', async ({ page }) => {
@@ -74,8 +71,10 @@ test.describe('play', () => {
     await openApp(page);
     await pickShuffle(page, 1);
     await deal(page);
+    const before = await card(page, '2H').boundingBox();
     await dragTo(page, card(page, '2H'), foundation(page, 1));
     await expect.poll(() => recordText(page)).toBe('D A♠ a A♥ b 2♥ w');
+    expect(await card(page, '2H').boundingBox()).toEqual(before);   // back on the waste
     await expect(page.locator('#undoBtn')).toBeDisabled();
   });
 
@@ -146,6 +145,79 @@ test.describe('play', () => {
     await expect(status(page)).toHaveText('Game record copied.');
     const text = await page.evaluate(() => navigator.clipboard.readText());
     expect(text).toBe('Setup: 2223\nDeal: ASa AHb 2Hw\nPlay: ASh--a');
+  });
+});
+
+test.describe('finishing, take-backs and the win panel', () => {
+  test('the automatic finish plays the last card once nothing is hidden', async ({ page }) => {
+    await openApp(page);
+    await pickShuffle(page, 1);
+    await deal(page);
+    for (const id of ['AS', 'AH', '2H']) await card(page, id).click();   // 2♠ is left, face up, with the stock and waste empty
+    await expect(page.locator('#winPanel')).toBeVisible();
+    await expect.poll(() => recordText(page)).toBe(
+      'D A♠ a A♥ b 2♥ w 1 A♠ h -- a 2 A♥ h 2♠ b 3 2♥ h -- w 4 2♠ h -- b EOP W4');
+  });
+
+  test('with Auto-complete off, the last card waits for the player', async ({ page }) => {
+    await openApp(page);
+    await page.locator('#autoFinishChk').uncheck();
+    await pickShuffle(page, 1);
+    await deal(page);
+    for (const id of ['AS', 'AH', '2H']) await card(page, id).click();
+    await settle(page);
+    await expect(page.locator('#winPanel')).toBeHidden();
+    await card(page, '2S').click();
+    await expect(page.locator('#winPanel')).toBeVisible();
+  });
+
+  test('clicking a foundation card brings it back down to a column as a new move', async ({ page }) => {
+    await openApp(page);
+    await pickShuffle(page, 1);
+    await deal(page);
+    await card(page, 'AS').click();
+    await card(page, 'AH').click();   // A♥ up; 2♠ shows in b
+    await settle(page);
+    await card(page, 'AH').click();   // no other column took it before, so this is a new move onto 2♠
+    await expect.poll(() => recordText(page)).toBe('D A♠ a A♥ b 2♥ w 1 A♠ h -- a 2 A♥ h 2♠ b 3 A♥ b -- h');
+  });
+
+  test('clicking a card again on its foundation sends it to the column instead (take-back)', async ({ page }) => {
+    await openApp(page);
+    await pickShuffle(page, 7);   // 2♠ A♠ A♥ 2♥: a 2♠, b A♥ over A♠, waste 2♥
+    await deal(page);
+    await card(page, 'AH').click();   // to its foundation, though column a could take it
+    await settle(page);
+    await card(page, 'AH').click();   // straight back: rewritten as the move to column a
+    await expect.poll(() => recordText(page)).toBe('D 2♠ a A♥ b 2♥ w 1 A♥ a A♠ b');
+    await page.locator('#undoBtn').click();
+    await expect.poll(() => recordText(page)).toBe('D 2♠ a A♥ b 2♥ w');
+  });
+
+  test('the win panel: Same deal, New deal and Quit', async ({ page }) => {
+    await openApp(page);
+    const win = async () => {
+      for (const id of ['AS', 'AH', '2S', '2H']) await card(page, id).click();
+      await expect(page.locator('#winPanel')).toBeVisible();
+    };
+    await pickShuffle(page, 1);
+    await deal(page);
+    await win();
+    await page.locator('#sameDealBtn').click();
+    await expect(page.locator('#winPanel')).toBeHidden();
+    await expect.poll(() => recordText(page)).toBe('D A♠ a A♥ b 2♥ w');
+    await settle(page);
+    await win();
+    await page.locator('#quitBtn').click();
+    await expect(page.locator('#winPanel')).toBeHidden();
+    await expect(status(page)).toContainText('Game stopped');
+    await page.locator('#restartBtn').click();
+    await settle(page);
+    await win();
+    await page.locator('#newDealBtn').click();
+    await expect(page.locator('#winPanel')).toBeHidden();
+    await expect(page.locator('.deal-btn')).toBeHidden();       // shuffled and dealt in one step
+    await expect.poll(() => recordText(page)).toMatch(/^D /);
   });
 });
 

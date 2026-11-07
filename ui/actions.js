@@ -1,6 +1,6 @@
 // What the player's actions do: shuffling, dealing, moves, the automatic finish, undo and the
 // buttons' commands.
-import { AUTO_STEP_MS, G, REFILL_LOCK_MS, S } from './shared.js';
+import { AUTO_STEP_MS, G, REFILL_LOCK_MS, S, inPlay, say } from './shared.js';
 import { confirmCard, confirmModal, newDealBtn, statusEl, winPanel, winText } from './dom.js';
 import { shuffledMessage, syncShufflePicker } from './settings.js';
 import { cardEls, render } from './table.js';
@@ -33,8 +33,6 @@ export function dealShuffle() {
   render();
 }
 
-// With nothing else to say, a game in play shows "Good luck!" rather than an empty line.
-export function say(msg) { statusEl.textContent = msg || (inPlay() ? 'Good luck!' : ''); }
 function shake(id) {
   const el = cardEls.get(id);
   if (!el) return;
@@ -155,11 +153,6 @@ export function showWin() {
   winText.textContent = `In ${S.moves} ${S.moves === 1 ? 'move' : 'moves'}.`;
   winPanel.hidden = false;
   newDealBtn.focus({ preventScroll: true });
-}
-
-/** A dealt game that hasn't been won or quit. */
-export function inPlay() {
-  return !!S.state && !S.state.pending && !S.closed && !G.isWon(S.state);
 }
 
 // Ask before a reshuffle ends a game in play. Resolves true for Continue, false for Cancel.

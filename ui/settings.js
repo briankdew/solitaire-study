@@ -1,8 +1,8 @@
 // The settings menus: High card, Suits, Columns, Draw, Custom shuffle and Auto-complete.
-import { AUTO_FINISH_KEY, G, S, SETTINGS_KEY, rankLabel, setupCode, withArticle } from './shared.js';
+import { AUTO_FINISH_KEY, G, S, SETTINGS_KEY, inPlay, rankLabel, say, setupCode, withArticle } from './shared.js';
 import { autoFinishChk, columnsSel, drawSel, highestSel, ruleLine, settingsHint } from './dom.js';
 import { makePicker } from './picker.js';
-import { confirmReshuffle, inPlay, prepareNewShuffle, runAutoFinish, say } from './actions.js';
+import { confirmReshuffle, prepareNewShuffle, runAutoFinish } from './actions.js';
 
 // The settings and Auto-complete start from what the browser remembers.
 S.settings = loadSettings();

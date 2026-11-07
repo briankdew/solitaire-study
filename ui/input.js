@@ -1,8 +1,8 @@
 // Pointer, button and keyboard input.
-import { DRAG_THRESHOLD, G, S, Z } from './shared.js';
+import { DRAG_THRESHOLD, G, S, Z, say } from './shared.js';
 import { board, confirmCancel, confirmContinue, confirmModal, endGameBtn, newBtn, newDealBtn, quitBtn, quitGameBtn, restartBtn, sameDealBtn, undoBtn } from './dom.js';
 import { basePos, cardEls, dealBtn, render, slots } from './table.js';
-import { closeConfirm, dealShuffle, drawFromStock, endGame, newDealNow, newShuffle, playByClick, quitGame, restartGame, say, tryMove, undo } from './actions.js';
+import { closeConfirm, dealShuffle, drawFromStock, endGame, newDealNow, newShuffle, playByClick, quitGame, restartGame, tryMove, undo } from './actions.js';
 
 /* ---------- pointer: tap and drag ---------- */
 

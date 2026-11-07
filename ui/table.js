@@ -1,9 +1,8 @@
 // The card table: piles, card faces, layout and drawing the game.
-import { G, PIPS, S, Z, rankLabel, top } from './shared.js';
+import { G, PIPS, S, Z, inPlay, rankLabel, top } from './shared.js';
 import { board, endGameBtn, newBtn, quitGameBtn, restartBtn, tableWrap, undoBtn } from './dom.js';
 import { layoutRecord, placeUndo } from './layout.js';
 import { renderRecord } from './record.js';
-import { inPlay } from './actions.js';
 
 /* ---------- table pieces (rebuilt when the deck or column count changes) ---------- */
 

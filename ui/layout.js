@@ -33,6 +33,8 @@ export function layoutRecord() {
   updateStacking();
   placeUndo();
 }
+// Undo goes under column a, one card wide. Beside the table its bottom lines up with the bottom of
+// the record's frame; below the table (narrow screens) it sits at the bottom of the play area.
 export function placeUndo() {
   const wrapTop = tableWrap.getBoundingClientRect().top;
   const bottom = narrowLayout.matches

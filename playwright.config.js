@@ -6,15 +6,15 @@ module.exports = defineConfig({
   fullyParallel: true,
   reporter: 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: 'http://127.0.0.1:4319',
     viewport: { width: 1400, height: 900 },
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } } }],
   webServer: {
-    command: 'python3 -m http.server 4173 --bind 127.0.0.1',
-    url: 'http://127.0.0.1:4173/index.html',
-    reuseExistingServer: !process.env.CI,
+    command: 'python3 -m http.server 4319 --bind 127.0.0.1',
+    url: 'http://127.0.0.1:4319/index.html',
+    reuseExistingServer: false,   // never test some other server that happens to hold the port
   },
 });
