@@ -123,6 +123,13 @@ each deal is the same game as before). Foundations are fixed to the suit order, 
 showing A and its suit while empty and taking only its own Ace. The order alternates colors. Games saved before the change are
 dropped for a fresh shuffle.
 
+## 8. Browser tests and splitting the page's code — done 2026-11-07
+
+Groundwork for the larger items above. 18 Playwright browser tests (`npm run test:e2e`) now cover
+what a player does on the page, alongside the 79 rule tests. The page's 1,080-line inline script
+became ten JavaScript modules in `ui/` and its styles moved to `styles.css`, with no change to how the
+app looks or plays (screenshots at three widths are pixel-identical to before).
+
 ## Related, deferred: end-of-play (EOP) check
 
 After each move, check whether any progressive move is left, and flag the player when none is.

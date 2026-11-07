@@ -78,10 +78,10 @@ The play area keeps a fixed size, tall enough for the longest column any setting
 
 ## Run it locally
 
-Open `index.html` in a browser. To serve it instead:
+Serve the folder and open it in a browser (the page's code is split into JavaScript modules, which browsers only load over HTTP, so opening `index.html` as a file shows an empty table):
 
 ```sh
-python3 -m http.server 8000
+npm start
 # then visit http://localhost:8000
 ```
 
@@ -93,12 +93,32 @@ The rules live in `game.js` as pure functions that don't touch the page, and the
 npm test
 ```
 
+The page itself is tested in a headless browser with Playwright: shuffling and dealing, clicks, drags, the keyboard, Undo, the record, Copy record, the settings and the layout at four widths. `Math.random` is seeded in these tests, so a random shuffle comes out the same every run.
+
+```sh
+npm install          # once: installs Playwright (1.64.1)
+npm run test:e2e
+```
+
 ## Project layout
 
 ```
-index.html        page, styles, rendering and input handling
+index.html        page markup
+styles.css        page styles
 game.js           game rules (works in the browser and in Node)
+ui/               the page's code, as JavaScript modules:
+  main.js           starts the page (and keeps a game across updates on claude.ai)
+  shared.js         the game state shared by the modules (S), constants and small helpers
+  dom.js            the page elements the modules use
+  settings.js       the settings menus and Custom shuffle
+  picker.js         the custom dropdown used by Suits and Custom shuffle
+  table.js          the card table: piles, card faces, layout and drawing the game
+  layout.js         fitting the Game Record panel and Undo around the table at each width
+  record.js         the Game Record panel and Copy record
+  actions.js        what each action does: shuffle, deal, moves, auto-finish, undo, buttons
+  input.js          pointer, button and keyboard input
 tests/            rule tests (node --test)
+e2e/              browser tests (Playwright)
 fonts/            Cousine subset, the record panel's font (Apache 2.0 license included)
 ROADMAP.md        planned work
 ```
