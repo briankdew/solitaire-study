@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const G = require('../game.js');
 
-// Build a card from an id like '2S' or 'AD'.
+// Build a card from an id like '2S' or 'AH'.
 function C(id, faceUp = true) {
   const rank = id[0] === 'A' ? 1 : Number(id[0]);
   return { id, rank, suit: id[1], faceUp };
@@ -18,23 +18,23 @@ const ids = (pile) => pile.map((c) => c.id);
 const T = (index, cardIndex) => ({ pile: 'tableau', index, cardIndex });
 const WASTE = { pile: 'waste' };
 
-// Deck order used by several tests: col 1 = A♠, col 2 = 3♦ (down) + 2♠, stock = 3♠ 2♦ A♦.
-const SAMPLE = () => G.deal(deckOf('AS', '3D', '2S', '3S', '2D', 'AD'));
+// Deck order used by several tests: col 1 = A♠, col 2 = 3♥ (down) + 2♠, then A♥ 2♥ 3♠ off the deck to the waste.
+const SAMPLE = () => G.deal(deckOf('AS', '3H', '2S', 'AH', '2H', '3S'));
 
 /* ---------- deck and deal ---------- */
 
-test('deck has the A, 2 and 3 of clubs and diamonds', () => {
-  assert.deepEqual(ids(G.makeDeck()).sort(), ['2C', '2D', '3C', '3D', 'AC', 'AD']);
+test('deck has the A, 2 and 3 of spades and hearts', () => {
+  assert.deepEqual(ids(G.makeDeck()).sort(), ['2H', '2S', '3H', '3S', 'AH', 'AS']);
 });
 
 test('deal: two columns, and the first three cards are already turned onto the waste', () => {
   const s = SAMPLE();
   assert.deepEqual(ids(s.tableau[0]), ['AS']);
   assert.equal(s.tableau[0][0].faceUp, true);
-  assert.deepEqual(ids(s.tableau[1]), ['3D', '2S']);
+  assert.deepEqual(ids(s.tableau[1]), ['3H', '2S']);
   assert.deepEqual(s.tableau[1].map((c) => c.faceUp), [false, true]);
   assert.equal(s.stock.length, 0);
-  assert.deepEqual(ids(s.waste), ['AD', '2D', '3S']);
+  assert.deepEqual(ids(s.waste), ['AH', '2H', '3S']);
   assert.ok(s.waste.every((c) => c.faceUp));
   assert.equal(s.wasteFan, 3);
   assert.deepEqual(ids(G.pickUp(s, WASTE)), ['3S']); // playable straight away
@@ -49,9 +49,9 @@ test('newGame uses every card exactly once', () => {
 /* ---------- stock and waste ---------- */
 
 test('draw turns three cards; the last one turned is playable', () => {
-  const s = G.draw(blank({ stock: [C('3S', false), C('2D', false), C('AD', false)] }));
+  const s = G.draw(blank({ stock: [C('3S', false), C('2H', false), C('AH', false)] }));
   assert.equal(s.stock.length, 0);
-  assert.deepEqual(ids(s.waste), ['AD', '2D', '3S']);
+  assert.deepEqual(ids(s.waste), ['AH', '2H', '3S']);
   assert.equal(s.wasteFan, 3);
   assert.ok(s.waste.every((c) => c.faceUp));
 });
@@ -63,24 +63,24 @@ test('with every stock and waste card showing, turning the stock changes nothing
 });
 
 test('with the stock empty, one turn turns the waste back over and turns up the next cards', () => {
-  // Waste (bottom to top): AS 2S 3S AD 2D; only 3S AD 2D show. Draw three.
-  const s = blank({ draw: 3, waste: ['AS', '2S', '3S', 'AD', '2D'].map((id) => C(id)) });
+  // Waste (bottom to top): AS 2S 3S AH 2H; only 3S AH 2H show. Draw three.
+  const s = blank({ draw: 3, waste: ['AS', '2S', '3S', 'AH', '2H'].map((id) => C(id)) });
   assert.equal(G.hasHiddenWaste(s), true);
   const next = G.draw(s);
   assert.deepEqual(ids(next.waste), ['AS', '2S', '3S'], 'the waste is turned over, then three come up in order');
   assert.ok(next.waste.every((c) => c.faceUp));
-  assert.deepEqual(ids(next.stock), ['2D', 'AD']);
+  assert.deepEqual(ids(next.stock), ['2H', 'AH']);
   assert.ok(next.stock.every((c) => !c.faceUp));
   // Unlimited passes: the next turn brings up the last two, then the cycle repeats.
   const after = G.draw(next);
-  assert.deepEqual(ids(after.waste).slice(-2), ['AD', '2D']);
+  assert.deepEqual(ids(after.waste).slice(-2), ['AH', '2H']);
   assert.deepEqual(ids(G.draw(after).waste), ['AS', '2S', '3S']);
 });
 
 test('recycle turns the waste back over into the stock, ready to turn up in the same order', () => {
-  const s = blank({ draw: 3, waste: ['AS', '2S', '3S', 'AD'].map((id) => C(id)), wasteFan: 3 });
+  const s = blank({ draw: 3, waste: ['AS', '2S', '3S', 'AH'].map((id) => C(id)), wasteFan: 3 });
   const r = G.recycle(s);
-  assert.deepEqual(ids(r.stock), ['AD', '3S', '2S', 'AS']);
+  assert.deepEqual(ids(r.stock), ['AH', '3S', '2S', 'AS']);
   assert.ok(r.stock.every((c) => !c.faceUp));
   assert.deepEqual(r.waste, []);
   assert.deepEqual(ids(G.draw(r).waste), ids(G.draw(s).waste)); // recycling first changes nothing about the draw
@@ -91,22 +91,22 @@ test('draw returns null when stock and waste are both empty', () => {
 });
 
 test('the waste always fans its top three cards', () => {
-  const waste = ['AS', '2S', '3S', 'AD', '2D'].map((id) => C(id));
+  const waste = ['AS', '2S', '3S', 'AH', '2H'].map((id) => C(id));
   const s = blank({ tableau: [[C('3S')], []], waste, wasteFan: 3 });
-  const played = G.move(s, WASTE, { pile: 'tableau', index: 0 }); // 2D onto 3S
+  const played = G.move(s, WASTE, { pile: 'tableau', index: 0 }); // 2H onto 3S
   assert.equal(played.wasteFan, 3); // 2S slides into position 1
-  assert.deepEqual(ids(played.waste.slice(-played.wasteFan)), ['2S', '3S', 'AD']);
+  assert.deepEqual(ids(played.waste.slice(-played.wasteFan)), ['2S', '3S', 'AH']);
   // Turning one card onto a waste of four still fans three.
   const one = G.draw(blank({ stock: [C('KS', false)], waste: waste.slice(0, 4), wasteFan: 3 }));
   assert.equal(one.wasteFan, 3);
-  assert.deepEqual(ids(one.waste.slice(-3)), ['3S', 'AD', 'KS']);
+  assert.deepEqual(ids(one.waste.slice(-3)), ['3S', 'AH', 'KS']);
 });
 
 test('playing from the fan reveals the next fanned card', () => {
   const a = G.move(SAMPLE(), T(0), { pile: 'foundation', index: 0 });
   const b = G.move(a, WASTE, G.wasteClickTarget(a)); // 3♠ -> empty column 1
   assert.equal(b.wasteFan, 2);
-  assert.deepEqual(ids(G.pickUp(b, WASTE)), ['2D']);
+  assert.deepEqual(ids(G.pickUp(b, WASTE)), ['2H']);
 });
 
 /* ---------- placement rules ---------- */
@@ -114,48 +114,70 @@ test('playing from the fan reveals the next fanned card', () => {
 test('an empty column accepts only a 3, or a run starting with a 3', () => {
   const s = blank();
   assert.equal(G.canPlaceOnTableau(s, [C('3S')], 0), true);
-  assert.equal(G.canPlaceOnTableau(s, [C('3D'), C('2S'), C('AD')], 0), true);
+  assert.equal(G.canPlaceOnTableau(s, [C('3H'), C('2S'), C('AH')], 0), true);
   assert.equal(G.canPlaceOnTableau(s, [C('2S')], 0), false);
-  assert.equal(G.canPlaceOnTableau(s, [C('AD')], 0), false);
+  assert.equal(G.canPlaceOnTableau(s, [C('AH')], 0), false);
 });
 
 test('columns build down in alternating colors', () => {
-  const s = blank({ tableau: [[C('3S')], [C('3D')]] });
-  assert.equal(G.canPlaceOnTableau(s, [C('2D')], 0), true);  // red on black
+  const s = blank({ tableau: [[C('3S')], [C('3H')]] });
+  assert.equal(G.canPlaceOnTableau(s, [C('2H')], 0), true);  // red on black
   assert.equal(G.canPlaceOnTableau(s, [C('2S')], 1), true);  // black on red
   assert.equal(G.canPlaceOnTableau(s, [C('2S')], 0), false); // same color
-  assert.equal(G.canPlaceOnTableau(s, [C('AD')], 0), false); // wrong rank
+  assert.equal(G.canPlaceOnTableau(s, [C('AH')], 0), false); // wrong rank
 });
 
 test('foundations start with an Ace and build up by suit', () => {
   const s = blank({ foundations: [[C('AS')], []] });
   assert.equal(G.canPlaceOnFoundation(s, [C('2S')], 0), true);
-  assert.equal(G.canPlaceOnFoundation(s, [C('2D')], 0), false);
-  assert.equal(G.canPlaceOnFoundation(s, [C('AD')], 1), true);
-  assert.equal(G.canPlaceOnFoundation(s, [C('2D')], 1), false);
-  assert.equal(G.canPlaceOnFoundation(s, [C('3D'), C('2S')], 1), false); // one card at a time
+  assert.equal(G.canPlaceOnFoundation(s, [C('2H')], 0), false);
+  assert.equal(G.canPlaceOnFoundation(s, [C('AH')], 1), true);
+  assert.equal(G.canPlaceOnFoundation(s, [C('2H')], 1), false);
+  assert.equal(G.canPlaceOnFoundation(s, [C('3H'), C('2S')], 1), false); // one card at a time
+});
+
+test('foundations follow the suit order: each empty one takes only its own Ace', () => {
+  const two = blank();
+  assert.equal(G.canPlaceOnFoundation(two, [C('AS')], 0), true);
+  assert.equal(G.canPlaceOnFoundation(two, [C('AS')], 1), false);
+  assert.equal(G.canPlaceOnFoundation(two, [C('AH')], 0), false);
+  assert.equal(G.canPlaceOnFoundation(two, [C('AH')], 1), true);
+  assert.deepEqual(G.SUITS_BY_COUNT, { 2: ['S', 'H'], 4: ['S', 'H', 'C', 'D'] });
+  const four = blank({ foundations: [[], [], [], []] });
+  ['S', 'H', 'C', 'D'].forEach((suit, f) => {
+    assert.equal(G.foundationSuit(four, f), suit);
+    assert.equal(G.foundationTargetFor(four, C('A' + suit)), f);
+    for (let g = 0; g < 4; g++) assert.equal(G.canPlaceOnFoundation(four, [C('A' + suit)], g), g === f);
+  });
+});
+
+test('fitsSuitOrder spots games saved with the old suits or foundation order', () => {
+  assert.equal(G.fitsSuitOrder(SAMPLE()), true);
+  assert.equal(G.fitsSuitOrder(blank({ tableau: [[C('AD')], []] })), false);         // diamonds in a 2-suit game
+  assert.equal(G.fitsSuitOrder(blank({ foundations: [[C('AH')], []] })), false);     // hearts on the spades foundation
+  assert.equal(G.fitsSuitOrder(G.prepareDeal(Math.random, { highest: 5, suits: 4, columns: 4 })), true);
 });
 
 test('a card can move from a foundation back to a column', () => {
-  const s = blank({ tableau: [[C('3D')], []], foundations: [[C('AS'), C('2S')], []] });
+  const s = blank({ tableau: [[C('3H')], []], foundations: [[C('AS'), C('2S')], []] });
   const next = G.move(s, { pile: 'foundation', index: 0 }, T(0));
-  assert.deepEqual(ids(next.tableau[0]), ['3D', '2S']);
+  assert.deepEqual(ids(next.tableau[0]), ['3H', '2S']);
   assert.deepEqual(ids(next.foundations[0]), ['AS']);
 });
 
 test('moving a run carries every card above the one picked up', () => {
-  const blocked = blank({ tableau: [[C('3S'), C('2D'), C('AS')], [C('2S', false)]] });
+  const blocked = blank({ tableau: [[C('3S'), C('2H'), C('AS')], [C('2S', false)]] });
   assert.equal(G.move(blocked, T(0, 0), T(1)), null); // column 2's top is face down
-  const s = blank({ tableau: [[C('3S'), C('2D'), C('AS')], []] });
+  const s = blank({ tableau: [[C('3S'), C('2H'), C('AS')], []] });
   const moved = G.move(s, T(0, 0), T(1));
-  assert.deepEqual(ids(moved.tableau[1]), ['3S', '2D', 'AS']);
+  assert.deepEqual(ids(moved.tableau[1]), ['3S', '2H', 'AS']);
   assert.equal(moved.tableau[0].length, 0);
 });
 
 test('exposing a face-down card flips it face up', () => {
   const a = G.move(SAMPLE(), T(0), { pile: 'foundation', index: 0 });
   const b = G.move(a, T(1), { pile: 'foundation', index: 0 });
-  assert.deepEqual(ids(b.tableau[1]), ['3D']);
+  assert.deepEqual(ids(b.tableau[1]), ['3H']);
   assert.equal(b.tableau[1][0].faceUp, true);
 });
 
@@ -171,15 +193,15 @@ test('moves do not mutate the previous state (undo relies on this)', () => {
 
 test('waste click: plays on the leftmost column that accepts the card', () => {
   // Both columns show a red 3, so both can take the 2♠.
-  const s = blank({ tableau: [[C('3D')], [C('3D')]], waste: [C('2S')], wasteFan: 1 });
+  const s = blank({ tableau: [[C('3H')], [C('3H')]], waste: [C('2S')], wasteFan: 1 });
   assert.deepEqual(G.wasteClickTarget(s), { pile: 'tableau', index: 0 });
-  const onlyRight = blank({ tableau: [[C('3S')], [C('3D')]], waste: [C('2S')], wasteFan: 1 });
+  const onlyRight = blank({ tableau: [[C('3S')], [C('3H')]], waste: [C('2S')], wasteFan: 1 });
   assert.deepEqual(G.wasteClickTarget(onlyRight), { pile: 'tableau', index: 1 });
 });
 
 test('waste click: a foundation wins over a column', () => {
   const s = blank({
-    tableau: [[C('AD', false)], [C('3D')]],
+    tableau: [[C('AH', false)], [C('3H')]],
     foundations: [[C('AS')], []],
     waste: [C('2S')],
     wasteFan: 1,
@@ -189,100 +211,100 @@ test('waste click: a foundation wins over a column', () => {
 
 test('waste click: goes to the foundation when no column takes it', () => {
   const s = blank({
-    tableau: [[C('3S')], [C('2D', false)]],
-    foundations: [[], [C('AS')]],
+    tableau: [[C('3S')], [C('2H', false)]],
+    foundations: [[C('AS')], []],
     waste: [C('2S')],
     wasteFan: 1,
   });
-  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 1 });
-  const ace = blank({ tableau: [[C('3S')], [C('3D')]], waste: [C('AD')], wasteFan: 1 });
-  assert.deepEqual(G.wasteClickTarget(ace), { pile: 'foundation', index: 0 });
+  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 });
+  const ace = blank({ tableau: [[C('3S')], [C('3H')]], waste: [C('AH')], wasteFan: 1 });
+  assert.deepEqual(G.wasteClickTarget(ace), { pile: 'foundation', index: 1 }, 'the hearts foundation');
 });
 
 test('waste click: a 3 goes to its foundation before an empty column', () => {
   const s = blank({
-    tableau: [[C('2D', false)], []],
+    tableau: [[C('2H', false)], []],
     foundations: [[C('AS'), C('2S')], []],
     waste: [C('3S')],
     wasteFan: 1,
   });
   assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 });
-  const noFoundation = blank({ tableau: [[C('2D', false)], []], foundations: [[C('AS')], []], waste: [C('3S')], wasteFan: 1 });
+  const noFoundation = blank({ tableau: [[C('2H', false)], []], foundations: [[C('AS')], []], waste: [C('3S')], wasteFan: 1 });
   assert.deepEqual(G.wasteClickTarget(noFoundation), { pile: 'tableau', index: 1 });
 });
 
 test('waste click: null when nothing can take the card', () => {
-  const s = blank({ tableau: [[C('3S')], [C('AD')]], waste: [C('2S')], wasteFan: 1 });
+  const s = blank({ tableau: [[C('3S')], [C('AH')]], waste: [C('2S')], wasteFan: 1 });
   assert.equal(G.wasteClickTarget(s), null);
 });
 
 /* ---------- click rules: column cards ---------- */
 
 test('column click: the top card goes to its foundation before the other column', () => {
-  const s = blank({ tableau: [[C('3D')], [C('3S', false), C('2S')]], foundations: [[C('AS')], []] });
+  const s = blank({ tableau: [[C('3H')], [C('3S', false), C('2S')]], foundations: [[C('AS')], []] });
   assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 0 });
-  const noFoundation = blank({ tableau: [[C('3D')], [C('3S', false), C('2S')]] });
+  const noFoundation = blank({ tableau: [[C('3H')], [C('3S', false), C('2S')]] });
   assert.deepEqual(G.clickTarget(noFoundation, T(1, 1)), { pile: 'tableau', index: 0 });
 });
 
 test('column click: the top card goes to its foundation when no column takes it', () => {
-  const s = blank({ tableau: [[C('3S')], [C('3D', false), C('2S')]], foundations: [[C('AS')], []] });
+  const s = blank({ tableau: [[C('3S')], [C('3H', false), C('2S')]], foundations: [[C('AS')], []] });
   assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 0 });
 });
 
 test('column click: a card with cards on top of it moves as a group', () => {
-  const s = blank({ tableau: [[C('AS', false), C('3D'), C('2S'), C('AD')], []] });
-  const to = G.clickTarget(s, T(0, 1)); // click the 3♦ under 2♠ and A♦
+  const s = blank({ tableau: [[C('AS', false), C('3H'), C('2S'), C('AH')], []] });
+  const to = G.clickTarget(s, T(0, 1)); // click the 3♥ under 2♠ and A♥
   assert.deepEqual(to, { pile: 'tableau', index: 1 });
   const next = G.move(s, T(0, 1), to);
-  assert.deepEqual(ids(next.tableau[1]), ['3D', '2S', 'AD']);
+  assert.deepEqual(ids(next.tableau[1]), ['3H', '2S', 'AH']);
   assert.deepEqual(ids(next.tableau[0]), ['AS']);
   assert.equal(next.tableau[0][0].faceUp, true);
 });
 
 test('column click: a group never goes to a foundation', () => {
-  const s = blank({ tableau: [[C('3S'), C('2D'), C('AS')], [C('2S', false)]], foundations: [[], [C('AD')]] });
-  assert.equal(G.clickTarget(s, T(0, 1)), null); // 2♦ + A♠ can't stack on a foundation
+  const s = blank({ tableau: [[C('3S'), C('2H'), C('AS')], [C('2S', false)]], foundations: [[], [C('AH')]] });
+  assert.equal(G.clickTarget(s, T(0, 1)), null); // 2♥ + A♠ can't stack on a foundation
 });
 
 test('column click: a whole column is not shuffled into an empty column', () => {
   const s = blank({ tableau: [[C('3S')], []], foundations: [[C('AS'), C('2S')], []] });
   assert.deepEqual(G.clickTarget(s, T(0, 0)), { pile: 'foundation', index: 0 });
-  const stuck = blank({ tableau: [[C('3S'), C('2D')], []] });
+  const stuck = blank({ tableau: [[C('3S'), C('2H')], []] });
   assert.equal(G.clickTarget(stuck, T(0, 0)), null);
 });
 
 test('column click: a 3 under a face-down card can move to an empty column', () => {
-  const s = blank({ tableau: [[C('AD', false), C('3S'), C('2D')], []] });
+  const s = blank({ tableau: [[C('AH', false), C('3S'), C('2H')], []] });
   assert.deepEqual(G.clickTarget(s, T(0, 1)), { pile: 'tableau', index: 1 });
 });
 
 test('ace click: a waste Ace goes to a foundation even when a column could take it', () => {
-  const s = blank({ tableau: [[C('2S')], [C('3D')]], waste: [C('AD')], wasteFan: 1 });
-  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 });
+  const s = blank({ tableau: [[C('2S')], [C('3H')]], waste: [C('AH')], wasteFan: 1 });
+  assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 1 });
 });
 
 test('ace click: a column Ace goes to a foundation even when the other column could take it', () => {
-  const s = blank({ tableau: [[C('2D')], [C('3S', false), C('AS')]], foundations: [[C('AD')], []] });
-  assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 1 });
+  const s = blank({ tableau: [[C('2H')], [C('3S', false), C('AS')]], foundations: [[], [C('AH')]] });
+  assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 0 });
   const next = G.move(s, T(1, 1), G.clickTarget(s, T(1, 1)));
-  assert.deepEqual(ids(next.foundations[1]), ['AS']);
+  assert.deepEqual(ids(next.foundations[0]), ['AS']);
   assert.equal(next.tableau[1][0].faceUp, true);
 });
 
 test('column click target: the column a foundation-bound card would go to otherwise', () => {
-  const s = blank({ tableau: [[C('3D')], [C('3S', false), C('2S')]], foundations: [[C('AS')], []] });
+  const s = blank({ tableau: [[C('3H')], [C('3S', false), C('2S')]], foundations: [[C('AS')], []] });
   assert.deepEqual(G.clickTarget(s, T(1, 1)), { pile: 'foundation', index: 0 });
   assert.deepEqual(G.columnClickTarget(s, T(1, 1)), { pile: 'tableau', index: 0 });
-  const w = blank({ tableau: [[C('3D')], [C('3S')]], foundations: [[C('AS')], []], waste: [C('2S')], wasteFan: 1 });
+  const w = blank({ tableau: [[C('3H')], [C('3S')]], foundations: [[C('AS')], []], waste: [C('2S')], wasteFan: 1 });
   assert.deepEqual(G.columnClickTarget(w, WASTE), { pile: 'tableau', index: 0 });
-  const none = blank({ tableau: [[C('3S')], [C('2D', false), C('2S')]], foundations: [[C('AS')], []] });
+  const none = blank({ tableau: [[C('3S')], [C('2H', false), C('2S')]], foundations: [[C('AS')], []] });
   assert.equal(G.columnClickTarget(none, T(1, 1)), null);
   assert.equal(G.columnClickTarget(none, F(0)), null); // only waste and column cards
 });
 
 test('clicking a stock card has no target', () => {
-  const s = blank({ stock: [C('2D', false)] });
+  const s = blank({ stock: [C('2H', false)] });
   assert.equal(G.clickTarget(s, { pile: 'stock', index: 0 }), null);
 });
 
@@ -292,29 +314,29 @@ const F = (index) => ({ pile: 'foundation', index });
 
 test('foundation click: the top card goes to the leftmost column that takes it', () => {
   // Both columns show a red 3, so both can take the 2♠.
-  const s = blank({ tableau: [[C('3D')], [C('3D')]], foundations: [[C('AS'), C('2S')], []] });
+  const s = blank({ tableau: [[C('3H')], [C('3H')]], foundations: [[C('AS'), C('2S')], []] });
   assert.deepEqual(G.clickTarget(s, F(0)), { pile: 'tableau', index: 0 });
-  const onlyRight = blank({ tableau: [[C('3S')], [C('3D')]], foundations: [[C('AS'), C('2S')], []] });
+  const onlyRight = blank({ tableau: [[C('3S')], [C('3H')]], foundations: [[C('AS'), C('2S')], []] });
   assert.deepEqual(G.clickTarget(onlyRight, F(0)), { pile: 'tableau', index: 1 });
   const next = G.move(onlyRight, F(0), G.clickTarget(onlyRight, F(0)));
-  assert.deepEqual(ids(next.tableau[1]), ['3D', '2S']);
+  assert.deepEqual(ids(next.tableau[1]), ['3H', '2S']);
   assert.deepEqual(ids(next.foundations[0]), ['AS']);
 });
 
 test('foundation click: an Ace can come down onto a 2, but never hops to another foundation', () => {
-  const s = blank({ tableau: [[C('2S')], []], foundations: [[C('AD')], []] });
+  const s = blank({ tableau: [[C('2S')], []], foundations: [[C('AH')], []] });
   assert.deepEqual(G.clickTarget(s, F(0)), { pile: 'tableau', index: 0 });
-  const noColumn = blank({ tableau: [[C('2D')], []], foundations: [[C('AD')], []] });
+  const noColumn = blank({ tableau: [[C('2H')], []], foundations: [[C('AH')], []] });
   assert.equal(G.clickTarget(noColumn, F(0)), null);
 });
 
 test('foundation click: the highest card can go to an empty column', () => {
-  const s = blank({ tableau: [[C('AD', false)], []], foundations: [[C('AS'), C('2S'), C('3S')], []] });
+  const s = blank({ tableau: [[C('AH', false)], []], foundations: [[C('AS'), C('2S'), C('3S')], []] });
   assert.deepEqual(G.clickTarget(s, F(0)), { pile: 'tableau', index: 1 });
 });
 
 test('foundation click: null when no column takes the card, or the foundation is empty', () => {
-  const s = blank({ tableau: [[C('3S')], [C('AD')]], foundations: [[C('AS'), C('2S')], []] });
+  const s = blank({ tableau: [[C('3S')], [C('AH')]], foundations: [[C('AS'), C('2S')], []] });
   assert.equal(G.clickTarget(s, F(0)), null);
   assert.equal(G.clickTarget(s, F(1)), null);
 });
@@ -324,15 +346,15 @@ test('foundation click: null when no column takes the card, or the foundation is
 test('a scripted deal plays through to a win, with an automatic finish at the end', () => {
   let s = SAMPLE();
   s = G.move(s, T(0), { pile: 'foundation', index: 0 });              // A♠ up
-  s = G.move(s, T(1), G.clickTarget(s, T(1, 1)));                     // 2♠ clicked -> foundation, 3♦ flips
+  s = G.move(s, T(1), G.clickTarget(s, T(1, 1)));                     // 2♠ clicked -> foundation, 3♥ flips
   assert.deepEqual(ids(s.foundations[0]), ['AS', '2S']);
   assert.deepEqual(G.wasteClickTarget(s), { pile: 'foundation', index: 0 }); // a click would send 3♠ up
   s = G.move(s, WASTE, T(0));                                          // 3♠ dragged to empty col 1
   assert.deepEqual(ids(s.tableau[0]), ['3S']);
-  s = G.move(s, WASTE, G.wasteClickTarget(s));                        // 2♦ -> on 3♠
-  assert.deepEqual(ids(s.tableau[0]), ['3S', '2D']);
-  s = G.move(s, WASTE, G.wasteClickTarget(s));                        // A♦ -> foundation
-  assert.deepEqual(ids(s.foundations[1]), ['AD']);
+  s = G.move(s, WASTE, G.wasteClickTarget(s));                        // 2♥ -> on 3♠
+  assert.deepEqual(ids(s.tableau[0]), ['3S', '2H']);
+  s = G.move(s, WASTE, G.wasteClickTarget(s));                        // A♥ -> foundation
+  assert.deepEqual(ids(s.foundations[1]), ['AH']);
   assert.equal(G.canAutoFinish(s), true);
   let guard = 0;
   while (!G.isWon(s) && guard++ < 10) {
@@ -359,16 +381,16 @@ test('deck size follows the highest card and the number of suits', () => {
   assert.equal(G.makeDeck(13, 4).length, 52);
   assert.equal(G.makeDeck(2, 2).length, 4);
   assert.deepEqual(ids(G.makeDeck(2, 4)), ['AS', '2S', 'AH', '2H', 'AC', '2C', 'AD', '2D']);
-  assert.ok(G.makeDeck(13, 2).some((c) => c.id === 'XC'));
+  assert.ok(G.makeDeck(13, 2).some((c) => c.id === 'XS'));
   assert.ok(Object.values(G.RANK_LABEL).every((r) => r.length === 1)); // every card id is two characters
 });
 
 test('hearts are red and clubs are black', () => {
   assert.equal(G.isRed(C('2H')), true);
-  assert.equal(G.isRed(C('2C')), false);
-  const s = blank({ tableau: [[C('3C')], [C('3H')]] });
+  assert.equal(G.isRed(C('2S')), false);
+  const s = blank({ tableau: [[C('3S')], [C('3H')]] });
   assert.equal(G.canPlaceOnTableau(s, [C('2H')], 0), true);
-  assert.equal(G.canPlaceOnTableau(s, [C('2D')], 1), false);
+  assert.equal(G.canPlaceOnTableau(s, [C('2H')], 1), false);
 });
 
 test('staircase deal: 4 columns of 1-4 cards, one face up on each, and three turned to the waste', () => {
@@ -394,11 +416,11 @@ test('an empty column accepts the highest card, whatever it is', () => {
   assert.equal(G.canPlaceOnTableau(kings, [C('3S')], 0), false);
   assert.equal(G.canPlaceOnTableau(kings, [{ id: 'KS', rank: 13, suit: 'S', faceUp: true }], 0), true);
   const twos = blank({ highest: 2 });
-  assert.equal(G.canPlaceOnTableau(twos, [C('2D'), C('AS')], 0), true);
+  assert.equal(G.canPlaceOnTableau(twos, [C('2H'), C('AS')], 0), true);
 });
 
 test('a foundation is complete at the highest card', () => {
-  const s = blank({ highest: 2, foundations: [[C('AS'), C('2S')], [C('AD'), C('2D')]] });
+  const s = blank({ highest: 2, foundations: [[C('AS'), C('2S')], [C('AH'), C('2H')]] });
   assert.equal(G.isWon(s), true);
   assert.equal(G.isWon({ ...s, highest: 3 }), false);
 });
@@ -447,7 +469,7 @@ test('auto-finish always completes a big all-face-up game', () => {
   // Kings, two suits: each column holds an alternating run; nothing hidden.
   const run = (suits) => suits.map((suit, i) => ({ id: `${13 - i}${suit}`, rank: 13 - i, suit, faceUp: true }));
   const alt = (a, b) => Array.from({ length: 13 }, (_, i) => (i % 2 ? b : a));
-  let s = blank({ highest: 13, tableau: [run(alt('S', 'D')), run(alt('D', 'S'))] });
+  let s = blank({ highest: 13, tableau: [run(alt('S', 'H')), run(alt('H', 'S'))] });
   assert.equal(G.canAutoFinish(s), true);
   let guard = 0;
   while (!G.isWon(s) && guard++ < 100) {
@@ -508,8 +530,8 @@ test('settings: draw is 1 to 4, default 3', () => {
 });
 
 test('deal turns the draw count onto the waste and fans that many', () => {
-  const deck = deckOf('AS', '3D', '2S', '3S', '2D', 'AD');
-  for (const [draw, waste] of [[1, ['AD']], [2, ['AD', '2D']], [4, ['AD', '2D', '3S']]]) {
+  const deck = deckOf('AS', '3H', '2S', 'AH', '2H', '3S');
+  for (const [draw, waste] of [[1, ['AH']], [2, ['AH', '2H']], [4, ['AH', '2H', '3S']]]) {
     const s = G.deal(deck, { draw });
     assert.equal(s.draw, draw);
     assert.deepEqual(ids(s.waste), waste); // draw 4 with 3 left in the stock turns all 3
@@ -518,19 +540,19 @@ test('deal turns the draw count onto the waste and fans that many', () => {
 });
 
 test('draw 1 turns one card at a time and fans only the top card', () => {
-  const s = G.deal(deckOf('AS', '3D', '2S', '3S', '2D', 'AD'), { draw: 1 });
+  const s = G.deal(deckOf('AS', '3H', '2S', 'AH', '2H', '3S'), { draw: 1 });
   const t = G.draw(s);
-  assert.deepEqual(ids(t.waste), ['AD', '2D']);
+  assert.deepEqual(ids(t.waste), ['AH', '2H']);
   assert.equal(t.wasteFan, 1);
-  assert.deepEqual(ids(G.pickUp(t, WASTE)), ['2D']);
+  assert.deepEqual(ids(G.pickUp(t, WASTE)), ['2H']);
 });
 
 test('draw 4 fans four cards, and playing the top card slides the next one in', () => {
-  const waste = ['AS', '2S', '3S', 'AD', '2D'].map((id) => C(id));
+  const waste = ['AS', '2S', '3S', 'AH', '2H'].map((id) => C(id));
   const s = blank({ draw: 4, tableau: [[C('3S')], []], waste, wasteFan: 4 });
-  const played = G.move(s, WASTE, { pile: 'tableau', index: 0 }); // 2D onto 3S
+  const played = G.move(s, WASTE, { pile: 'tableau', index: 0 }); // 2H onto 3S
   assert.equal(played.wasteFan, 4);
-  assert.deepEqual(ids(played.waste.slice(-4)), ['AS', '2S', '3S', 'AD']);
+  assert.deepEqual(ids(played.waste.slice(-4)), ['AS', '2S', '3S', 'AH']);
 });
 
 test('a prepared shuffle keeps its draw count through dealing, and old saves draw three', () => {
@@ -566,19 +588,19 @@ test('settings: 4 suits need a highest card of 3 or more', () => {
 /* ---------- play notation ---------- */
 
 // The user's mock-up game: highest 3, 2 suits, 2 columns, draw 3.
-// Deck order deals a = 3D, b = AC (down) + AD, waste 2D 2C 3C (3C playable).
-const MOCKUP = () => G.deal(deckOf('3D', 'AC', 'AD', '3C', '2C', '2D'), { columns: 2, draw: 3 });
+// Deck order deals a = 3H, b = AS (down) + AH, waste 2H 2S 3S (3S playable).
+const MOCKUP = () => G.deal(deckOf('3H', 'AS', 'AH', '2H', '2S', '3S'), { columns: 2, draw: 3 });
 const H = (index) => ({ pile: 'foundation', index });
 
 test('notation: deal tokens follow the card-then-pile scheme', () => {
   const s = MOCKUP();
-  assert.deepEqual(G.dealTokens(s).map((t) => G.tokenText(t)), ['3Da', 'ADb', '2D2C3Cw']);
+  assert.deepEqual(G.dealTokens(s).map((t) => G.tokenText(t)), ['3Ha', 'AHb', '2H2S3Sw']);
 });
 
 test('notation: the deal is the column tokens then the waste turn; old records are put in that order', () => {
   const s = MOCKUP();
   const deal = G.dealTokens(s);
-  const play = [G.moveToken(s, T(1), H(0))];
+  const play = [G.moveToken(s, T(1), H(1))];
   assert.equal(G.dealLength([...deal, ...play]), 3);
   assert.equal(G.dealLength([]), 0);
   const old = [deal[2], deal[0], deal[1], ...play];
@@ -594,72 +616,72 @@ test('notation: the mock-up game is recorded token for token', () => {
     s = G.move(s, from, to);
     assert.ok(s, 'move is legal');
   };
-  play(T(1), H(0));     // A♦ to h, A♣ revealed in b
-  play(T(1), H(1));     // A♣ to h, b empty
-  play(WASTE, T(1));    // 3♣ to b, 2♣ playable
-  play(WASTE, H(1));    // 2♣ to h, 2♦ playable
-  play(WASTE, H(0));    // 2♦ to h, waste empty
-  play(T(0), H(0));     // 3♦ to h, a empty
-  play(T(1), H(1));     // 3♣ to h, b empty
+  play(T(1), H(1));     // A♥ to h, A♠ revealed in b
+  play(T(1), H(0));     // A♠ to h, b empty
+  play(WASTE, T(1));    // 3♠ to b, 2♠ playable
+  play(WASTE, H(0));    // 2♠ to h, 2♥ playable
+  play(WASTE, H(1));    // 2♥ to h, waste empty
+  play(T(0), H(1));     // 3♥ to h, a empty
+  play(T(1), H(0));     // 3♠ to h, b empty
   assert.ok(G.isWon(s));
   assert.equal(G.recordText(s, tokens), [
     'Setup: 3223',
-    'Deal: 3Da ADb 2D2C3Cw',
-    'Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b',
+    'Deal: 3Ha AHb 2H2S3Sw',
+    'Play: AHhASb ASh--b 3Sb2Sw 2Sh2Hw 2Hh--w 3Hh--a 3Sh--b',
   ].join('\n'));
 });
 
 test('notation: display text can use suit symbols', () => {
-  const sym = (id) => id[0] + { C: '♣', D: '♦' }[id[1]];
-  const t = { type: 'move', card: 'AD', to: 'h', top: 'AC', from: 'b' };
-  assert.equal(G.tokenText(t, sym), 'A♦hA♣b');
+  const sym = (id) => id[0] + { S: '♠', H: '♥' }[id[1]];
+  const t = { type: 'move', card: 'AH', to: 'h', top: 'AS', from: 'b' };
+  assert.equal(G.tokenText(t, sym), 'A♥hA♠b');
 });
 
 test('notation: a run is named by its bottom card', () => {
-  // a holds AC (down) under the run 2C AD; the run moves onto 3D in b and AC is revealed.
-  const s = blank({ tableau: [[C('AC', false), C('2C'), C('AD')], [C('3D')]] });
+  // a holds AS (down) under the run 2S AH; the run moves onto 3H in b and AS is revealed.
+  const s = blank({ tableau: [[C('AS', false), C('2S'), C('AH')], [C('3H')]] });
   const t = G.moveToken(s, T(0, 1), T(1));
-  assert.equal(G.tokenText(t), '2CbACa');
+  assert.equal(G.tokenText(t), '2SbASa');
 });
 
 test('notation: a foundation card brought back down', () => {
-  const s = blank({ tableau: [[C('3C')], []], foundations: [[C('AD'), C('2D')], []] });
-  assert.equal(G.tokenText(G.moveToken(s, H(0), T(0))), '2DaADh');
+  const s = blank({ tableau: [[C('3S')], []], foundations: [[], [C('AH'), C('2H')]] });
+  assert.equal(G.tokenText(G.moveToken(s, H(1), T(0))), '2HaAHh');
 });
 
 test('notation: a turn names the cards turned up; its fan is every waste card showing', () => {
-  const s = blank({ draw: 3, stock: [C('3C', false)], waste: [C('AD'), C('2D'), C('AC')] });
+  const s = blank({ draw: 3, stock: [C('3S', false)], waste: [C('AH'), C('2H'), C('AS')] });
   const next = G.draw(s);
   const t = G.turnToken(s, next);
-  assert.equal(G.tokenText(t), '3Cw');
-  assert.deepEqual(t.fan, ['2D', 'AC', '3C']);
-  // Stock now empty: the next turn turns the waste over and brings up AD 2D AC in one token.
+  assert.equal(G.tokenText(t), '3Sw');
+  assert.deepEqual(t.fan, ['2H', 'AS', '3S']);
+  // Stock now empty: the next turn turns the waste over and brings up AH 2H AS in one token.
   const again = G.draw(next);
-  assert.equal(G.tokenText(G.turnToken(next, again)), 'AD2DACw');
-  assert.deepEqual(G.turnToken(next, again).fan, ['AD', '2D', 'AC']);
+  assert.equal(G.tokenText(G.turnToken(next, again)), 'AH2HASw');
+  assert.deepEqual(G.turnToken(next, again).fan, ['AH', '2H', 'AS']);
 });
 
 test('notation: a move from the waste carries the fan left showing', () => {
   let s = MOCKUP();
-  const t = G.moveToken(s, WASTE, T(1)); // not legal yet: b holds AD
+  const t = G.moveToken(s, WASTE, T(1)); // not legal yet: b holds AH
   assert.equal(t, null);
-  s = G.move(s, T(1), H(0));
-  s = G.move(s, T(1), H(1)); // b empty
+  s = G.move(s, T(1), H(1));
+  s = G.move(s, T(1), H(0)); // b empty
   const m = G.moveToken(s, WASTE, T(1));
-  assert.equal(G.tokenText(m), '3Cb2Cw');
-  assert.deepEqual(m.fan, ['2D', '2C']);
+  assert.equal(G.tokenText(m), '3Sb2Sw');
+  assert.deepEqual(m.fan, ['2H', '2S']);
 });
 
 test('notation: the result token ends the Play line and counts move tokens only', () => {
   let s = MOCKUP();
   const tokens = G.dealTokens(s);
-  for (const [from, to] of [[T(1), H(0)], [T(1), H(1)], [WASTE, T(1)], [WASTE, H(1)], [WASTE, H(0)], [T(0), H(0)], [T(1), H(1)]]) {
+  for (const [from, to] of [[T(1), H(1)], [T(1), H(0)], [WASTE, T(1)], [WASTE, H(0)], [WASTE, H(1)], [T(0), H(1)], [T(1), H(0)]]) {
     tokens.push(G.moveToken(s, from, to));
     s = G.move(s, from, to);
   }
   tokens.push(G.resultToken(tokens, G.isWon(s)));
   assert.equal(G.tokenText(tokens[tokens.length - 1]), 'W7');
-  assert.ok(G.recordText(s, tokens).endsWith('3Ch--b W7'));
+  assert.ok(G.recordText(s, tokens).endsWith('3Sh--b W7'));
   assert.equal(G.tokenText(G.resultToken(tokens.slice(0, 5), false)), 'L2');
 });
 
@@ -693,4 +715,65 @@ test('notation: ten is X in card ids and the record header', () => {
   const s = G.newGame(() => 0.5, { highest: 10, suits: 4, columns: 7, draw: 3 });
   assert.equal(G.setupText(s), 'X473');
   assert.deepEqual(G.parseCard('XH'), { id: 'XH', rank: 10, suit: 'H' });
+});
+
+/* ---------- standard Klondike deal and preset shuffles ---------- */
+
+test('deal goes in rows, and the stock keeps deck order', () => {
+  const deck = G.makeDeck(13, 4).map((c) => ({ ...c, faceUp: false }));
+  const s = G.deal(deck, { columns: 7, draw: 3 });
+  const at = (i) => deck[i].id;
+  assert.deepEqual(ids(s.tableau[0]), [at(0)]);
+  assert.deepEqual(ids(s.tableau[1]), [at(1), at(7)]);
+  assert.deepEqual(ids(s.tableau[2]), [at(2), at(8), at(13)]);
+  assert.deepEqual(ids(s.tableau[6]), [at(6), at(12), at(17), at(21), at(24), at(26), at(27)]);
+  for (const col of s.tableau) {
+    assert.deepEqual(col.map((c) => c.faceUp), col.map((_, i) => i === col.length - 1));
+  }
+  assert.deepEqual(ids(s.waste), [at(28), at(29), at(30)], 'the first stock turn shows the 29th-31st cards');
+  assert.equal(s.stock[s.stock.length - 1].id, at(31), 'the next card off the deck is on top of the stock');
+});
+
+test('preset shuffles: the 12 four-card deals, one from each suit-swap pair', () => {
+  const list = G.shuffleList(2, 2);
+  assert.equal(list.length, 12);
+  const deckIds = ids(G.makeDeck(2, 2)).sort().join();
+  const texts = list.map((d) => ids(d).join(' '));
+  for (const d of list) assert.equal(ids(d).slice().sort().join(), deckIds);
+  assert.equal(new Set(texts).size, 12);
+  const swap = (t) => t.replace(/[SH]/g, (x) => (x === 'S' ? 'H' : 'S'));
+  for (const t of texts) assert.ok(!texts.includes(swap(t)), `${t} and its suit swap are both listed`);
+  assert.deepEqual(G.shuffleList(3, 2), []);
+});
+
+test('preset shuffles: deal 1 deals A♠ to a, A♥ over 2♠ in b, 2♥ to the waste', () => {
+  const p = G.prepareDeck(G.shuffleList(2, 2)[0], { highest: 2, suits: 2, columns: 2, draw: 3 });
+  assert.equal(p.pending, true);
+  const s = G.dealPending(p);
+  assert.deepEqual(ids(s.tableau[0]), ['AS']);
+  assert.deepEqual(ids(s.tableau[1]), ['2S', 'AH']);
+  assert.equal(s.tableau[1][0].faceUp, false);
+  assert.deepEqual(ids(s.waste), ['2H']);
+});
+
+test('preset shuffles: shuffleIndexOf finds each deal, and 0 for others', () => {
+  G.shuffleList(2, 2).forEach((d, i) => assert.equal(G.shuffleIndexOf(d, 2, 2), i + 1));
+  assert.equal(G.shuffleIndexOf(deckOf('AH', '2S', 'AS', '2H'), 2, 2), 0); // deal 6 with the suits traded
+  assert.equal(G.shuffleIndexOf(deckOf('AS', '2S', '3S', 'AH', '2H', '3H'), 3, 2), 0);
+});
+
+test('preset shuffles: each one carries its setup with Draw 3', () => {
+  const all = G.presetShuffles();
+  assert.equal(all.length, 12);
+  all.forEach((p, i) => {
+    assert.equal(p.n, i + 1);
+    assert.deepEqual(p.settings, { highest: 2, suits: 2, columns: 2, draw: 3 });
+    assert.equal(G.shuffleIndexOf(p.deck, 2, 2), i + 1);
+    assert.doesNotThrow(() => G.prepareDeck(p.deck, p.settings));
+  });
+});
+
+test('prepareDeck refuses an order that is not the settings\' deck', () => {
+  assert.throws(() => G.prepareDeck(deckOf('AH', '2H', 'AS'), { highest: 2, suits: 2, columns: 2 }));
+  assert.throws(() => G.prepareDeck(deckOf('AH', '2H', 'AS', 'AS'), { highest: 2, suits: 2, columns: 2 }));
 });

@@ -201,6 +201,16 @@
   .suit-set { font-size: calc(13em / 11); line-height: 1; letter-spacing: 0; }
   .suit-set .r { color: var(--red); }
   .suit-set .b { color: var(--black); }
+  /* Shuffle: its choices are wider than the other menus, so its name sits above a menu as wide as the
+     settings. contain keeps the menu from widening the settings column. */
+  .field-wide { grid-template-columns: minmax(0, 1fr); gap: 4px; contain: inline-size; }
+  .field-wide .picker-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .deal-no { display: inline-block; min-width: 2ch; margin-right: 0.6em; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+  /* Each card on a small card-colored chip, as in the record panel, so black cards read on the felt. */
+  .deal-cards { display: inline-flex; gap: 3px; vertical-align: middle; }
+  .deal-cards span { padding: 0 3px; border-radius: 3px; background: var(--card); line-height: 1.35; }
+  .deal-cards .r { color: var(--red); }
+  .deal-cards .b { color: var(--black); }
   .toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
   .toggle span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
   .toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--brass); cursor: pointer; }
@@ -236,6 +246,9 @@
     pointer-events: none;
   }
   .slot.stock { cursor: pointer; }
+  /* An empty foundation shows A and its suit, a little smaller, beside it. */
+  .found-mark { display: inline-flex; align-items: baseline; }
+  .found-suit { font: 400 0.8em/1 var(--font-ui); margin-left: 0.04em; }
   .slot.stock:disabled { cursor: default; }
   .slot svg { width: 42%; height: auto; }
   .slot .recycle { display: none; }
@@ -511,6 +524,12 @@
         </div>
         <label class="field"><span>Columns</span><select id="columnsSel"></select></label>
         <label class="field"><span>Draw</span><select id="drawSel"></select></label>
+        <div class="field field-wide"><span id="shuffleLabel">Custom shuffle</span>
+          <div class="picker">
+            <button type="button" class="picker-btn" id="shuffleBtn" aria-haspopup="listbox" aria-expanded="false"><span class="picker-value"></span><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 3.5 5 7l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <ul class="picker-list" id="shuffleList" role="listbox" aria-labelledby="shuffleLabel" tabindex="-1" hidden></ul>
+          </div>
+        </div>
         <label class="toggle"><input type="checkbox" id="autoFinishChk" checked><span>Auto-complete</span></label>
         <p class="hint" id="settingsHint"></p>
       </form>
@@ -525,8 +544,9 @@
         <summary>How to play</summary>
         <ul>
           <li><b>Goal:</b> build each suit from Ace up to the highest card on the foundations at the top right.</li>
+          <li><b>Foundations:</b> one per suit, in the standard suit order ♠ ♥ ♣ ♦ from left to right (two suits are ♠ and ♥), each marked with an A and its suit while empty. Each takes only its own suit's Ace and then builds up in that suit; an Ace dragged onto any foundation goes to its own.</li>
           <li><b>Shuffle, then deal:</b> shuffling only mixes the cards, which wait face down in the stock with a <b>Deal</b> button on the last waste position. Dealing puts them on the table to start play.</li>
-          <li><b>Deal:</b> The columns get 1, 2, 3… cards with only the last one face up, and the first stock cards (as many as one turn takes) are turned over so a card is playable right away.</li>
+          <li><b>Deal:</b> the standard Klondike deal, in rows from the top of the deck: one card to each column from left to right with only the first face up, then a row starting at the second column, and so on, so the columns get 1, 2, 3… cards with only the last one face up. The rest of the deck becomes the stock in the same order, and its first cards (as many as one turn takes) are turned over so a card is playable right away.</li>
           <li><b>Stock:</b> click it to turn over more cards (as many as the <b>Draw</b> setting). The stock and waste work as one pile: once the stock runs out, it shows the refresh arrow while any waste cards are hidden under the fan, and clicking it turns the waste back over onto the stock and turns up the next cards in one go. When every remaining card is already showing, the stock is empty and clicking it just shakes the waste. Once one turn or less is left in the real stock, its top card shows how many cards remain. The waste has one dashed position per card drawn and always shows that many of its top cards; only the top (rightmost) one can be played, and playing it slides the others right and brings up the next card. There is no limit on passes.</li>
           <li><b>Columns:</b> build down in alternating colors, red on black or black on red. An empty column takes only the highest card, or a run that starts with it.</li>
           <li><b>Click</b> the top waste card or any face-up column card to play it automatically: to its foundation if it can go there, otherwise to the leftmost column that takes it. Cards on top of a clicked column card move with it, and a group like that only goes to a column. If a click sends a card to its foundation when you meant a column, click it again on the foundation straight away: it goes to the column instead, as if it had gone there in the first place (the record is corrected, no move is added, and Undo puts it back where it started).</li>
@@ -534,6 +554,7 @@
           <li><b>Drag</b> any face-up card, with the cards on top of it, to a column or foundation. Cards on a foundation can be dragged back down to a column.</li>
           <li>Once every card is face up, the game finishes itself, unless <b>Auto-complete</b> is turned off; then you play every card yourself. When you win, choose <b>New deal</b> to shuffle and deal a new game, <b>Same deal</b> to deal this shuffle again, or <b>Quit</b>.</li>
           <li><b>Settings:</b> the high card (the highest rank in each suit, 2 to K, with X for ten), suits (2 or 4), the number of columns (2 to 7) and cards drawn from the stock at a time (1 to 4), in the same order as a game record's header. Changing a setting shuffles a new deck for the new settings, with the same warning as <b>New shuffle</b> if a game is in play. There are always at least as many columns as suits, so every highest card can head a column; 4 suits also need a highest card of 3 or more. Column counts that would leave no cards for the stock are unavailable.</li>
+          <li><b>Custom shuffle:</b> pick a numbered deal to shuffle the deck into exactly that order (shown left to right from the top of the deck), or Random. A deal also changes the other settings to the ones it is listed for, with Draw 3. The list has the 12 deals of the 4-card deck (high card 2, 2 suits, 2 columns), one for each game that is different once trading the two suits is set aside. A random shuffle that matches a listed deal shows its number.</li>
           <li><b>Moves</b> (numbered in the game record) count cards played to a column or foundation, including those the automatic finish plays. Turning the stock doesn't count.</li>
           <li><b>Undo move</b> takes back one action; it reads <b>Undo draw</b> when the last action was a turn of the stock. <b>Restart deal</b> deals the current shuffle again and starts play from the beginning. <b>New shuffle</b> mixes the cards without dealing; if a game is in play, it asks first. <b>Quit</b> stops play and leaves the table exactly as it is, until you choose Restart deal or New shuffle. <b>End game</b> does the same and records the game as a loss.</li>
           <li><b>Pile names:</b> the letters above the table name each pile for writing down play: <b>s</b> stock, <b>w</b> waste, <b>h</b> foundations, and <b>a</b>, <b>b</b>, <b>c</b>… the columns from left to right.</li>
@@ -667,6 +688,26 @@
     (n) => `${n} <span class="suit-set">${G.SUITS_BY_COUNT[n].map((s) => `<span class="${s === 'H' || s === 'D' ? 'r' : 'b'}">${G.SUIT_SYMBOL[s]}</span>`).join('')}</span>`,
     (n) => `${n} (${G.SUITS_BY_COUNT[n].map((s) => ({ S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' })[s]).join(', ')})`);
 
+  // Shuffle: Random (0) or a numbered preset deal (game.js SHUFFLE_LISTS), its cards left to right
+  // from the top of the deck. The menu's value for a deal is its position in the list plus 1.
+  const shuffleOptions = G.presetShuffles();
+  const cardHTML = (c) => `<span class="${G.isRed(c) ? 'r' : 'b'}">${G.label(c)}</span>`;
+  const shuffleSel = makePicker(document.getElementById('shuffleBtn'), document.getElementById('shuffleList'), 'Custom shuffle',
+    [0, ...shuffleOptions.map((_, i) => i + 1)],
+    (v) => (v ? `<span class="deal-no">${shuffleOptions[v - 1].n}</span><span class="deal-cards">${shuffleOptions[v - 1].deck.map(cardHTML).join('')}</span>` : 'Random'),
+    (v) => (v ? `Deal ${shuffleOptions[v - 1].n}: ${shuffleOptions[v - 1].deck.map(G.spokenName).join(', ')}` : 'Random'));
+
+  /** Show the current shuffle's deal in the Shuffle menu if it's a listed one, otherwise Random. */
+  function syncShufflePicker() {
+    shuffleSel.value = shuffleState ? G.shuffleIndexOf(shuffleState.deck, settings.highest, settings.suits) : 0;
+  }
+
+  /** Status for a fresh random shuffle, naming its number if it is one of the listed deals. */
+  function shuffledMessage() {
+    const v = shuffleSel.value;
+    return v ? `Cards shuffled: deal ${shuffleOptions[v - 1].n} on the Custom shuffle list. Click Deal to start.` : 'Cards shuffled. Click Deal to start.';
+  }
+
   /**
    * A small dropdown (button + listbox) that acts like a <select> for the settings code:
    * it has a `value` and fires 'change' when the player picks a different option.
@@ -764,6 +805,7 @@
     // The setup code is the record header: highest card, suits, columns, draw (setupText).
     const setup = rankLabel(settings.highest) + settings.suits + settings.columns + settings.draw;
     ruleLine.textContent = `Setup ${setup} · ${n} Cards · Draw ${settings.draw} · Empty column takes ${withArticle(settings.highest)}`;
+    syncShufflePicker();
   }
 
   async function onSettingsChange() {
@@ -784,10 +826,11 @@
     say(`New deck of ${settings.highest * settings.suits} cards shuffled for ${settings.columns} columns. Click Deal to deal it.${note}`);
   }
 
-  // Shuffle for the current settings and wait for the Deal button.
-  function prepareNewShuffle() {
-    state = G.prepareDeal(Math.random, settings);
+  // Shuffle for the current settings (randomly, or in the given order) and wait for the Deal button.
+  function prepareNewShuffle(order) {
+    state = order ? G.prepareDeck(order, settings) : G.prepareDeal(Math.random, settings);
     shuffleState = state;
+    syncShufflePicker();
     history = [];
     record = [];
     moves = 0;
@@ -808,6 +851,24 @@
     render();
   }
   [highestSel, columnsSel, suitsSel, drawSel].forEach((sel) => sel.addEventListener('change', onSettingsChange));
+
+  // Choosing from the Shuffle menu: a listed deal, or Random for a new random shuffle.
+  async function onShuffleChange() {
+    if (busy) { syncShufflePicker(); return; }
+    if (inPlay() && !(await confirmReshuffle())) { syncShufflePicker(); return; } // put the menu back
+    const v = shuffleSel.value;
+    if (!v) { prepareNewShuffle(); say(shuffledMessage()); return; }
+    // A deal sets the settings it was listed for, with Draw 3.
+    const { n, deck, settings: wanted } = shuffleOptions[v - 1];
+    const changed = ['highest', 'suits', 'columns', 'draw'].some((k) => settings[k] !== wanted[k]);
+    settings = { ...wanted };
+    saveSettings();
+    syncSettingsUI();
+    prepareNewShuffle(deck);
+    const setup = rankLabel(settings.highest) + settings.suits + settings.columns + settings.draw;
+    say(`Deal ${n} shuffled: ${deck.map(G.label).join(' ')}.${changed ? ` Settings changed to ${setup}.` : ''} Click Deal to start.`);
+  }
+  shuffleSel.addEventListener('change', onShuffleChange);
   document.getElementById('settingsForm').addEventListener('submit', (e) => e.preventDefault());
 
   /* ---------- table pieces (rebuilt when the deck or column count changes) ---------- */
@@ -880,9 +941,11 @@
     [...slots.wasteFan, ...slots.tab, ...slots.found, ...labels.tab].forEach((el) => el.remove());
 
     slots.wasteFan = Array.from({ length: G.drawOf(state) }, () => makeSlot('waste', ''));
+    // Each foundation builds one suit, in the standard order ♠ ♥ ♣ ♦ (G.foundationSuit).
     slots.found = state.foundations.map((_, i) => {
-      const el = makeSlot('foundation', 'A');
-      el.setAttribute('aria-label', `Foundation ${i + 1}`);
+      const suit = G.foundationSuit(state, i);
+      const el = makeSlot('foundation', `<span class="found-mark">A<span class="found-suit">${G.SUIT_SYMBOL[suit]}</span></span>`);
+      el.setAttribute('aria-label', `${{ S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' }[suit]} foundation`);
       return el;
     });
     slots.tab = state.tableau.map((_, i) => {
@@ -1386,7 +1449,7 @@
     if (busy) return;
     if (inPlay() && !(await confirmReshuffle())) return;
     prepareNewShuffle();
-    say('Cards shuffled. Click Deal to start.');
+    say(shuffledMessage());
   }
 
   // Restart deal: deal the current shuffle again and start play from the beginning.
@@ -1455,9 +1518,12 @@
   function dropTarget(from, ids, dx, dy) {
     const first = basePos.get(ids[0]);
     const r = { x: first.x + dx, y: first.y + dy, w: L.cw, h: L.ch };
+    // An Ace dropped on any foundation goes to its own suit's foundation.
+    const cards = G.pickUp(state, from);
+    const aceTo = cards && cards.length === 1 && cards[0].rank === 1 ? G.foundationTargetFor(state, cards[0]) : -1;
     const candidates = [
       ...L.tab.map((p, i) => ({ to: { pile: 'tableau', index: i }, rect: { x: p.x, y: p.y, w: L.cw, h: L.height - p.y } })),
-      ...L.found.map((p, i) => ({ to: { pile: 'foundation', index: i }, rect: { x: p.x, y: p.y, w: L.cw, h: L.ch } })),
+      ...L.found.map((p, i) => ({ to: { pile: 'foundation', index: aceTo >= 0 ? aceTo : i }, rect: { x: p.x, y: p.y, w: L.cw, h: L.ch } })),
     ];
     let best = null, bestArea = 0;
     for (const c of candidates) {
@@ -1560,6 +1626,11 @@
     board.classList.add('no-anim');
     // Games saved with older names for ten used ids like "10C" or "TC".
     if (saved && saved.state) saved = JSON.parse(JSON.stringify(saved).replace(/"(?:10|T)([SHCD])"/g, '"X$1"'));
+    // Games saved before the suit order ♠ ♥ ♣ ♦ (clubs and diamonds for two suits, any Ace on any
+    // foundation) can't continue under the new rules, so they're dropped for a fresh shuffle.
+    const fits = (st) => !st || G.fitsSuitOrder(st);
+    if (saved && saved.state && !(fits(saved.state) && fits(saved.shuffleState) &&
+        (saved.history || []).every((h) => fits(h && h.state)))) saved = null;
     if (saved && saved.state && Array.isArray(saved.history)) {
       state = saved.state;
       history = saved.history;
@@ -1578,7 +1649,7 @@
     } else {
       syncSettingsUI();
       prepareNewShuffle();
-      say('Cards shuffled. Click Deal to start.');
+      say(shuffledMessage());
     }
     requestAnimationFrame(() => board.classList.remove('no-anim'));
   }

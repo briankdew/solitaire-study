@@ -13,8 +13,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  // Suits in play: two suits use clubs and diamonds; four add spades and hearts.
-  const SUITS_BY_COUNT = { 2: ['C', 'D'], 4: ['S', 'H', 'C', 'D'] };
+  // Suits in play, in the standard order ♠ ♥ ♣ ♦: two suits are spades and hearts, four add
+  // clubs and diamonds (alternating colors). Foundations follow this order, one suit each, left to right.
+  const SUITS_BY_COUNT = { 2: ['S', 'H'], 4: ['S', 'H', 'C', 'D'] };
   const SUIT_SYMBOL = { S: '♠︎', H: '♥︎', C: '♣︎', D: '♦︎' }; // text style, not emoji
   const SUIT_NAME = { S: 'spades', H: 'hearts', C: 'clubs', D: 'diamonds' };
   // Every rank is one character (X for ten), so each card is two: 'XC', 'AH'. This matches the play notation.
@@ -110,29 +111,30 @@
   /* ---------- dealing ---------- */
 
   /**
-   * Deal a deck in the given order as a staircase:
-   *   column 1 gets 1 card, column 2 gets 2, ... (only the last card face up),
-   *   and the rest form the stock, face down (the deck's last card on top).
-   * The first stock cards (as many as one turn takes) are then turned onto
-   * the waste, so a card is playable right away. With the default 6 cards and 2 columns:
-   *   deck[0] -> column 1; deck[1], deck[2] -> column 2; deck[3..5] -> stock.
+   * Deal a deck (deck[0] is the top card) the standard Klondike way, in rows:
+   * one card to each column left to right with only the first face up, then a
+   * row starting at the second column (its first card face up), and so on, so
+   * column 1 ends with 1 card, column 2 with 2, ... The rest stay in deck order
+   * as the stock, face down, so the next card off the deck is the next one
+   * turned. The first stock cards (as many as one turn takes) are then turned
+   * onto the waste, so a card is playable right away. With 7 cards and 3 columns:
+   *   deck[0] -> a (up); deck[1] -> b, deck[2] -> c; deck[3] -> b (up), deck[4] -> c;
+   *   deck[5] -> c (up); deck[6] -> stock.
    */
   function deal(deck, options = {}) {
     const columns = options.columns || 2;
     const highest = Math.max(...deck.map((card) => card.rank));
     const suitCount = new Set(deck.map((card) => card.suit)).size;
     const c = deck.map((card) => ({ ...card, faceUp: false }));
-    const tableau = [];
+    const tableau = Array.from({ length: columns }, () => []);
     let k = 0;
-    for (let i = 0; i < columns; i++) {
-      const col = [];
-      for (let j = 0; j <= i; j++) col.push({ ...c[k++], faceUp: j === i });
-      tableau.push(col);
+    for (let row = 0; row < columns; row++) {
+      for (let i = row; i < columns; i++) tableau[i].push({ ...c[k++], faceUp: i === row });
     }
     return draw({
       highest,
       draw: options.draw || DRAW_COUNT,
-      stock: c.slice(k),
+      stock: c.slice(k).reverse(), // the stock's top is the end of the array: the next card off the deck
       waste: [],
       wasteFan: 0, // how many of the waste's top cards are fanned out
       tableau,
@@ -152,7 +154,18 @@
    */
   function prepareDeal(rng = Math.random, settings = DEFAULT_SETTINGS) {
     const s = normalizeSettings(settings);
-    const deck = shuffle(makeDeck(s.highest, s.suits), rng).map((card) => ({ ...card, faceUp: false }));
+    return prepareDeck(shuffle(makeDeck(s.highest, s.suits), rng), s);
+  }
+
+  /**
+   * Like prepareDeal, for a deck in a given order (deck[0] is the top card).
+   * Throws unless the order holds exactly the cards of the settings' deck.
+   */
+  function prepareDeck(order, settings = DEFAULT_SETTINGS) {
+    const s = normalizeSettings(settings);
+    const wanted = makeDeck(s.highest, s.suits).map((card) => card.id).sort().join();
+    if (order.map((card) => card.id).sort().join() !== wanted) throw new Error('The order is not the deck for these settings');
+    const deck = order.map((card) => ({ ...card, faceUp: false }));
     return {
       highest: s.highest,
       draw: s.draw,
@@ -170,6 +183,57 @@
   function dealPending(state) {
     if (!state || !state.pending) return null;
     return deal(state.deck, { columns: state.tableau.length, draw: drawOf(state) });
+  }
+
+  /* ---------- preset shuffles ---------- */
+
+  /**
+   * Shuffles to choose from, in lists by setup: the deck (highest card, suits)
+   * and the columns to deal it to. Choosing one also sets those settings, with
+   * Draw 3 (PRESET_DRAW). Each deal is the deck top card first, in the official
+   * letters. The first list is the 4-card deck: one shuffle from each pair that
+   * trading the two suits makes the same game (the one led by a spade).
+   */
+  const PRESET_DRAW = 3;
+  const SHUFFLE_LISTS = [
+    {
+      highest: 2, suits: 2, columns: 2,
+      deals: [
+        'AS 2S AH 2H', 'AS 2S 2H AH', 'AS AH 2S 2H', 'AS AH 2H 2S', 'AS 2H 2S AH', 'AS 2H AH 2S',
+        '2S AS AH 2H', '2S AS 2H AH', '2S AH AS 2H', '2S AH 2H AS', '2S 2H AS AH', '2S 2H AH AS',
+      ],
+    },
+  ];
+  const toDeck = (text) => text.split(' ').map((id) => ({ ...parseCard(id), faceUp: false }));
+
+  /**
+   * Every preset shuffle, in menu order: { n (its number in its list), settings, deck }.
+   * The menu's value for one is its position here plus 1 (0 is Random).
+   */
+  function presetShuffles() {
+    return SHUFFLE_LISTS.flatMap((list) => list.deals.map((text, i) => ({
+      n: i + 1,
+      settings: normalizeSettings({ highest: list.highest, suits: list.suits, columns: list.columns, draw: PRESET_DRAW }),
+      deck: toDeck(text),
+    })));
+  }
+
+  /** The preset shuffles for a deck, as card lists (top card first); [] if it has none. */
+  function shuffleList(highest, suits) {
+    return SHUFFLE_LISTS.filter((l) => l.highest === highest && l.suits === suits)
+      .flatMap((l) => l.deals.map(toDeck));
+  }
+
+  /** A deck order's menu value (its position in presetShuffles() plus 1), or 0 if it isn't listed. */
+  function shuffleIndexOf(deck, highest, suits) {
+    const text = deck.map((card) => card.id).join(' ');
+    let base = 0;
+    for (const list of SHUFFLE_LISTS) {
+      const i = list.highest === highest && list.suits === suits ? list.deals.indexOf(text) : -1;
+      if (i >= 0) return base + i + 1;
+      base += list.deals.length;
+    }
+    return 0;
   }
 
   /* ---------- rules ---------- */
@@ -197,14 +261,17 @@
     return t.faceUp && cards[0].rank === t.rank - 1 && isRed(cards[0]) !== isRed(t);
   }
 
+  /** The suit a foundation builds: foundations follow the standard suit order left to right. */
+  const foundationSuit = (state, f) => (SUITS_BY_COUNT[state.foundations.length] || [])[f];
+
   function canPlaceOnFoundation(state, cards, f) {
     if (!cards || cards.length !== 1) return false;
     const pile = state.foundations[f];
     if (!pile) return false;
     const card = cards[0];
+    if (card.suit !== foundationSuit(state, f)) return false;
     const t = top(pile);
-    if (!t) return card.rank === 1;
-    return card.suit === t.suit && card.rank === t.rank + 1;
+    return card.rank === (t ? t.rank + 1 : 1);
   }
 
   /**
@@ -308,16 +375,23 @@
     return s;
   }
 
-  /** Foundation index that will take this card: same suit first, else the leftmost empty slot for an Ace. */
+  /** Foundation index that will take this card (its suit's foundation), or -1. */
   function foundationTargetFor(state, card) {
     if (!card) return -1;
-    let empty = -1;
-    for (let f = 0; f < state.foundations.length; f++) {
-      if (!canPlaceOnFoundation(state, [card], f)) continue;
-      if (state.foundations[f].length) return f;
-      if (empty < 0) empty = f;
-    }
-    return empty;
+    const f = (SUITS_BY_COUNT[state.foundations.length] || []).indexOf(card.suit);
+    return f >= 0 && canPlaceOnFoundation(state, [card], f) ? f : -1;
+  }
+
+  /**
+   * True if a state uses the current suits and foundation order (games saved
+   * before ♠ ♥ ♣ ♦ used clubs and diamonds for two suits, and any foundation for any Ace).
+   */
+  function fitsSuitOrder(state) {
+    const suits = SUITS_BY_COUNT[state.foundations.length];
+    if (!suits) return false;
+    const piles = [state.stock, state.waste, state.deck || [], ...state.tableau];
+    return piles.every((pile) => pile.every((c) => suits.includes(c.suit))) &&
+      state.foundations.every((pile, f) => pile.every((c) => c.suit === suits[f]));
   }
 
   /**
@@ -569,7 +643,13 @@
     deal,
     newGame,
     prepareDeal,
+    prepareDeck,
     dealPending,
+    SHUFFLE_LISTS,
+    PRESET_DRAW,
+    presetShuffles,
+    shuffleList,
+    shuffleIndexOf,
     isRed,
     label,
     spokenName,
@@ -582,6 +662,8 @@
     draw,
     recycle,
     foundationTargetFor,
+    foundationSuit,
+    fitsSuitOrder,
     clickTarget,
     columnClickTarget,
     wasteClickTarget,

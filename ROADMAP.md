@@ -102,6 +102,27 @@ To decide when this is picked up:
 - How saved games are listed, opened, and tied to the study work (e.g. which deals of a setup have
   been played).
 
+## 6. Shuffle menu and the standard deal — done 2026-11-07
+
+A **Custom shuffle** menu under Draw picks a numbered deal or Random, and is always available. Each deal is
+a deck order, top card first, shown left to right after its number. Choosing one changes the other
+settings to the ones its list gives (high card, suits, columns) with Draw 3. The first list is the
+4-card deck (high card 2, 2 suits, 2 columns): 12 deals, one from each pair that trading the suits
+makes the same game. More lists go in `SHUFFLE_LISTS` in game.js.
+
+The deal is now standard Klondike for every setting: rows from the top of the deck (one card to each
+column, first face up, then a row from the next column), and the leftover stock keeps deck order, so
+the next card off the deck is the next one turned. (Before, columns were filled one at a time and
+the stock was upside down. With 2 columns the deal is the same either way.)
+
+## 7. Standard suit order ♠ ♥ ♣ ♦ — done 2026-11-07
+
+Suits everywhere follow ♠ ♥ ♣ ♦. Two suits are ♠ and ♥ (they were ♣ and ♦), in the Suits menu,
+the deck, and the Custom shuffle deals (re-lettered ♦→♠, ♣→♥, so the list stays spade-first and
+each deal is the same game as before). Foundations are fixed to the suit order, left to right, each
+showing A and its suit while empty and taking only its own Ace. The order alternates colors. Games saved before the change are
+dropped for a fresh shuffle.
+
 ## Related, deferred: end-of-play (EOP) check
 
 After each move, check whether any progressive move is left, and flag the player when none is.
