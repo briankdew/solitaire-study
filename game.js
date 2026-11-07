@@ -469,15 +469,35 @@
     return state.waste.slice(state.waste.length - fanSize(state)).map((c) => c.id);
   }
 
-  /** Tokens for a game just dealt: the waste's turned cards, then each column's face-up card. */
+  /**
+   * Tokens for a game just dealt, in the order a physical deal shows them: each column's face-up
+   * card, then the waste's turned cards.
+   */
   function dealTokens(state) {
     const tokens = [];
-    const turn = state.waste.length ? { type: 'turn', cards: state.waste.map((c) => c.id), fan: fanIds(state) } : null;
-    if (turn) tokens.push(turn);
     state.tableau.forEach((col, i) => {
       if (col.length) tokens.push({ type: 'deal', card: top(col).id, to: COLUMN_LETTERS[i] });
     });
+    if (state.waste.length) tokens.push({ type: 'turn', cards: state.waste.map((c) => c.id), fan: fanIds(state) });
     return tokens;
+  }
+
+  /**
+   * How many tokens at the start of a record belong to the deal: the column tokens, then the
+   * waste turn. (A deal always turns up waste cards, since every allowed setup leaves a stock.)
+   */
+  function dealLength(tokens) {
+    let n = 0;
+    while (n < tokens.length && tokens[n].type === 'deal') n++;
+    return n && n < tokens.length && tokens[n].type === 'turn' ? n + 1 : n;
+  }
+
+  /** Records saved before the deal order changed start with the waste turn; put it after the columns. */
+  function reorderOldDeal(tokens) {
+    if (tokens.length < 2 || tokens[0].type !== 'turn' || tokens[1].type !== 'deal') return tokens;
+    let n = 1;
+    while (n < tokens.length && tokens[n].type === 'deal') n++;
+    return [...tokens.slice(1, n), tokens[0], ...tokens.slice(n)];
   }
 
   /** Token for a legal move, worked out before it is made; null if the move is illegal. */
@@ -516,13 +536,12 @@
   /**
    * The official game record, written the way it is by hand:
    *   Setup: 3223
-   *   Deal: 2D2C3Cw 3Da ADb
+   *   Deal: 3Da ADb 2D2C3Cw
    *   Play: ADhACb ACh--b … W7
-   * `tokens` starts with the deal's tokens (one turn plus one per column).
+   * `tokens` starts with the deal's tokens (one per column, then the waste turn).
    */
   function recordText(state, tokens) {
-    const dealCount = tokens.findIndex((t, i) => i > 0 && t.type !== 'deal');
-    const split = dealCount < 0 ? tokens.length : dealCount;
+    const split = dealLength(tokens);
     const line = (list) => list.map((t) => tokenText(t)).join(' ');
     return `Setup: ${setupText(state)}\nDeal: ${line(tokens.slice(0, split))}\nPlay: ${line(tokens.slice(split))}`;
   }
@@ -577,6 +596,8 @@
     fanIds,
     turnToken,
     dealTokens,
+    dealLength,
+    reorderOldDeal,
     movesIn,
     resultToken,
     moveToken,

@@ -57,7 +57,7 @@ In the panel, each line is cards then a pile letter, in a monospaced font (Cousi
 
 Every item is a card followed by its pile letter. Cards are rank then suit, two characters each, with **X** for ten (`XC`, `AH`). On screen suits are shown as symbols; the official record uses the letters S, H, C, D.
 
-- **Deal:** the waste cards turned up, left to right with the playable card last, then each column's face-up card: `2D2C3Cw 3Da ADb`.
+- **Deal:** each column's face-up card, then the waste cards turned up, left to right with the playable card last (the order a physical deal shows them): `3Da ADb 2D2C3Cw`.
 - **Move:** the card moved (the bottom card of a run) and where it went, then the new top card of the pile it came from and that pile's letter. `--` marks a pile that is now empty: `ADhACb`, `2Dh--w`.
 - **Turn:** each turn of the stock names the cards turned up, like the deal's first item (`8S4H9Dw`). A turn with the stock empty turns the waste back over first, in the same action.
 - **Result:** a finished game ends with `W` (won) or `L` (lost, from **End game**) and the number of moves, which is the number of move tokens: `W104`, `L34`.
@@ -66,7 +66,7 @@ Undo removes the last item. The copied record has a **Setup** line (highest card
 
 ```
 Setup: 3223
-Deal: 2D2C3Cw 3Da ADb
+Deal: 3Da ADb 2D2C3Cw
 Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b W7
 ```
 

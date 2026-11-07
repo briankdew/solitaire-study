@@ -78,12 +78,29 @@ and always fits the tallest possible column of cards.
 - **Fine-tuning (2026-11-06):** every menu is as wide as the Suits menu needs for "4" and four
   suits (6rem), with the setting names just left of the menus; "Highest card" is now "High card";
   the Moves counter is gone (moves are numbered in the game record); the action buttons stretch to
-  the settings' width; the gap between the table and the settings is doubled (64px). The page
-  stacks into one column below about 1160px wide, where the side columns stop fitting.
-- The Game Record is as narrow as its widest line allows (13.5ch): the deal's first line at Draw 4
-  ("D" + four cards + w) is wider than a move line with a three-digit number. Lines after a step's
-  first may use the label's space. The gap from the record to the table matches the settings side
+  the settings' width; the gap between the table and the settings is doubled (64px).
+- **Reflow (2026-11-06):** at 1160px wide and below, the settings column moves under the play area;
+  at 900px and below, the Game Record moves under the play area too, left of the settings; at
+  440px and below (phones), everything stacks in one column.
+- The Game Record is 13.5ch wide, set when the deal's first line was its waste line at Draw 4
+  ("D" + four cards + w). Since 2026-11-06 the deal lists the columns first and the waste last,
+  and lines after a step's first may use the label's space, so the record could now be a little
+  narrower. The gap from the record to the table matches the settings side
   (64px).
+
+## 5. Saving games (not started; added 2026-11-06)
+
+Nothing is saved today except the settings (in the browser). A game in progress is lost when the
+page is closed or reloaded; the only carry-over is on the claude.ai preview, where a game survives
+a republish while the tab stays open. Copy record is the only way to keep a game now.
+
+To decide when this is picked up:
+- **Where:** in the browser on one device (simplest), a file to download and load again, or
+  somewhere shared across devices.
+- **What:** the record text alone (with the shuffle order, enough to replay the game exactly), or
+  the full game so it can be resumed where it stopped.
+- How saved games are listed, opened, and tied to the study work (e.g. which deals of a setup have
+  been played).
 
 ## Related, deferred: end-of-play (EOP) check
 

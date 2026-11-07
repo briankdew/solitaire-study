@@ -572,7 +572,18 @@ const H = (index) => ({ pile: 'foundation', index });
 
 test('notation: deal tokens follow the card-then-pile scheme', () => {
   const s = MOCKUP();
-  assert.deepEqual(G.dealTokens(s).map((t) => G.tokenText(t)), ['2D2C3Cw', '3Da', 'ADb']);
+  assert.deepEqual(G.dealTokens(s).map((t) => G.tokenText(t)), ['3Da', 'ADb', '2D2C3Cw']);
+});
+
+test('notation: the deal is the column tokens then the waste turn; old records are put in that order', () => {
+  const s = MOCKUP();
+  const deal = G.dealTokens(s);
+  const play = [G.moveToken(s, T(1), H(0))];
+  assert.equal(G.dealLength([...deal, ...play]), 3);
+  assert.equal(G.dealLength([]), 0);
+  const old = [deal[2], deal[0], deal[1], ...play];
+  assert.deepEqual(G.reorderOldDeal(old), [...deal, ...play]);
+  assert.deepEqual(G.reorderOldDeal([...deal, ...play]), [...deal, ...play]);
 });
 
 test('notation: the mock-up game is recorded token for token', () => {
@@ -593,7 +604,7 @@ test('notation: the mock-up game is recorded token for token', () => {
   assert.ok(G.isWon(s));
   assert.equal(G.recordText(s, tokens), [
     'Setup: 3223',
-    'Deal: 2D2C3Cw 3Da ADb',
+    'Deal: 3Da ADb 2D2C3Cw',
     'Play: ADhACb ACh--b 3Cb2Cw 2Ch2Dw 2Dh--w 3Dh--a 3Ch--b',
   ].join('\n'));
 });
