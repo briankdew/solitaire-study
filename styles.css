@@ -1,0 +1,460 @@
+/* n-Card Solitaire: page styles. */
+/* Layout: one felt table. Stock and the fanned waste (one dashed position per card drawn) on the left, foundations on the right,
+   columns centered below. Cards are one size in every game: the largest that fits seven columns across the table. */
+:root {
+  --felt: #2f6b57;
+  --felt-deep: #1f4d3f;
+  --ink: #f4efe2;          /* text on felt */
+  --ink-muted: #c3d6c9;
+  --slot: rgba(244, 239, 226, 0.38);
+  --card: #fbfaf5;
+  --card-edge: #d8d2c1;
+  --red: #b8242c;
+  --black: #1c1f24;
+  --back: #7b2333;
+  --back-line: #933244;
+  --brass: #e3b54f;
+  --font-display: 'Libre Bodoni', 'Bodoni 72', Didot, Georgia, serif;
+  --font-ui: 'Karla', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --felt: #18402f; --felt-deep: #0e2a20; --ink: #e9e4d5; --ink-muted: #9db6a6;
+    --slot: rgba(233, 228, 213, 0.30); --card: #ebe8de; --card-edge: #b8b3a3;
+    --red: #b3262e; --black: #1c1f24; --back: #5f1b28; --back-line: #772634; --brass: #d4a645;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --felt: #18402f; --felt-deep: #0e2a20; --ink: #e9e4d5; --ink-muted: #9db6a6;
+  --slot: rgba(233, 228, 213, 0.30); --card: #ebe8de; --card-edge: #b8b3a3;
+  --red: #b3262e; --black: #1c1f24; --back: #5f1b28; --back-line: #772634; --brass: #d4a645;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse 120% 80% at 50% 25%, var(--felt), var(--felt-deep)) fixed var(--felt-deep);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.app {
+  margin: 0 auto;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 12px;
+}
+
+/* ---------- page layout ----------
+   The play area keeps its width (648px) in the middle; the left column is kept free for the
+   record carousel, and the settings, buttons and How to play stack on the right. */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 648px) minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  gap: 10px 32px;
+  align-items: start;
+}
+.layout > .status { grid-column: 2; grid-row: 1; }
+.side-left { grid-column: 1; grid-row: 1 / span 2; justify-self: end; margin-right: 32px; }   /* twice the column gap, like the right side */
+.play { grid-column: 2; grid-row: 2; min-width: 0; }
+.side-right { grid-column: 3; grid-row: 1 / span 2; display: grid; gap: 22px; justify-items: start; max-width: 20rem; margin-left: 32px; }   /* twice the column gap from the table */
+/* The page narrows in steps. First the settings column moves below the record and the play area
+   (under the play area). The empty right column still balances the record's, so the play area
+   stays centered while there is room and only moves right when there is not. */
+@media (max-width: 1160px) {   /* below this the settings column no longer fits (allowing for a scrollbar) */
+  .layout { grid-template-columns: minmax(max-content, 1fr) minmax(0, 648px) minmax(0, 1fr); grid-template-rows: auto auto auto; }
+  .side-right { grid-column: 2; grid-row: 3; max-width: none; margin-left: 0; margin-top: 14px; }
+}
+/* Then the record moves below the play area too, to the left of the settings column. */
+@media (max-width: 900px) {   /* record 130px + 64px + play area 648px + padding + scrollbar; keep narrowLayout in step */
+  .layout { grid-template-columns: max-content minmax(0, 1fr); grid-template-rows: none; width: 100%; max-width: 648px; justify-self: center; }
+  .layout > .status, .play { grid-column: 1 / -1; grid-row: auto; }
+  .side-left { grid-column: 1; grid-row: 3; justify-self: start; margin-top: 14px; }
+  .side-right { grid-column: 2; grid-row: 3; }
+}
+/* Phones: too narrow for the record beside the settings, so everything stacks (stackedLayout). */
+@media (max-width: 440px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .side-left { grid-column: 1; grid-row: 3; justify-self: center; margin-right: 0; }
+  .side-right { grid-column: 1; grid-row: 4; margin-top: 14px; }
+}
+
+/* ---------- header ---------- */
+.top {
+  width: 100%; max-width: 648px; justify-self: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--slot);
+}
+.brand h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.6rem, 5vw, 2.1rem);
+  line-height: 1.05;
+  letter-spacing: 0.005em;
+  text-wrap: balance;
+}
+.brand h1 .var { font-weight: 500; padding-right: 0.04em; }
+.brand p {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+/* The settings and the action buttons share one width: the setting names' column plus the menus'.
+   The action buttons, one per row, stretch to it. */
+.controls { display: grid; gap: 22px; width: max-content; max-width: 100%; }
+.toolbar { display: grid; gap: 8px; }
+.btn {
+  font: 600 0.9rem/1 var(--font-ui);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--slot);
+  border-radius: 6px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn:focus-visible, .slot:focus-visible, .field select:focus-visible, .picker-btn:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+
+/* ---------- settings ---------- */
+/* One setting per row: its name on the left, its menu just right of the longest name. Every menu
+   is as wide as the Suits menu needs for "4" and four suits. */
+.settings {
+  --menu-w: 6rem;
+  display: grid; grid-template-columns: max-content var(--menu-w); gap: 8px 14px; margin: 0;
+}
+.field { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; }
+.field > span {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
+}
+.field select {
+  font: 600 0.95rem/1.2 var(--font-ui);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--felt-deep) 70%, transparent);
+  border: 1px solid var(--slot);
+  border-radius: 6px;
+  padding: 6px 8px;
+  width: 100%;
+  cursor: pointer;
+}
+.field select option { color: var(--black); background: var(--card); }
+
+/* Suits: a custom dropdown, because a native one can't color each suit. The suits are drawn larger
+   than the number (13pt to 11pt) so they look the same height. */
+.picker { position: relative; }
+.picker-btn {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%;
+  font: 600 0.95rem/1.2 var(--font-ui);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--felt-deep) 70%, transparent);
+  border: 1px solid var(--slot);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.picker-btn svg { width: 10px; height: 10px; flex: none; }
+.picker-list {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 6000;
+  min-width: 100%;
+  margin: 0; padding: 4px;
+  list-style: none;
+  background: var(--felt-deep);
+  border: 1px solid var(--slot);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.picker-list:focus { outline: none; }
+.picker-list li {
+  padding: 6px 8px;
+  border-radius: 4px;
+  font: 600 0.95rem/1.2 var(--font-ui);
+  color: var(--ink);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.picker-list li:hover, .picker-list li.active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.picker-list li[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--brass); }
+.suit-set { font-size: calc(13em / 11); line-height: 1; letter-spacing: 0; }
+.suit-set .r { color: var(--red); }
+.suit-set .b { color: var(--black); }
+/* Shuffle: its choices are wider than the other menus, so its name sits above a menu as wide as the
+   settings. contain keeps the menu from widening the settings column. */
+.field-wide { grid-template-columns: minmax(0, 1fr); gap: 4px; contain: inline-size; }
+.field-wide .picker-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deal-no { display: inline-block; min-width: 2ch; margin-right: 0.6em; text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+/* Each card on a small card-colored chip, as in the record panel, so black cards read on the felt. */
+.deal-cards { display: inline-flex; gap: 3px; vertical-align: middle; }
+.deal-cards span { padding: 0 3px; border-radius: 3px; background: var(--card); line-height: 1.35; }
+.deal-cards .r { color: var(--red); }
+.deal-cards .b { color: var(--black); }
+.toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 6px 0; cursor: pointer; }
+.toggle span { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted); }
+.toggle input { width: 18px; height: 18px; margin: 0; accent-color: var(--brass); cursor: pointer; }
+.toggle input:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+.hint { grid-column: 1 / -1; contain: inline-size; margin: 0; font-size: 0.8rem; color: var(--ink-muted); }   /* wraps to the settings' width */
+.hint:empty { display: none; }
+
+/* ---------- table ---------- */
+.table-wrap { position: relative; }
+.board {
+  position: relative;
+  width: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.slot {
+  position: absolute; left: 0; top: 0;
+  width: var(--cw); height: var(--ch);
+  border-radius: calc(var(--cw) * 0.08);
+  border: 1.5px solid var(--slot);
+  display: grid; place-items: center;
+  color: var(--slot);
+  font: 700 calc(var(--cw) * 0.36) / 1 var(--font-display);
+  background: color-mix(in srgb, var(--felt-deep) 35%, transparent);
+  padding: 0;
+}
+/* Pile names for the play notation: s stock, w waste, h foundations, a, b, c… columns. */
+.pile-label {
+  position: absolute; left: 0; top: 0;
+  font: italic 600 max(13px, calc(var(--cw) * 0.22)) / 1 var(--font-ui);
+  color: var(--ink-muted);
+  pointer-events: none;
+}
+.slot.stock { cursor: pointer; }
+/* An empty foundation shows A and its suit, a little smaller, beside it. */
+.found-mark { display: inline-flex; align-items: baseline; }
+.found-suit { font: 400 0.8em/1 var(--font-ui); margin-left: 0.04em; }
+.slot.stock:disabled { cursor: default; }
+.slot svg { width: 42%; height: auto; }
+.slot .recycle { display: none; }
+.slot.stock.can-recycle .recycle { display: block; }
+/* The waste positions look like overlapping blank cards: felt-colored faces, so each covers the outline beneath it. */
+.slot.waste { border-style: dashed; background: var(--felt); }
+/* Undo sits under column a: one card wide, centered on the column, its bottom level with the
+   bottom of the game record (placeUndo). Column a starts with one card, so it never reaches it. */
+.undo-btn {
+  position: absolute; left: 0; top: 0; z-index: 50;
+  width: var(--cw);
+  padding: 7px 2px;
+  font-size: clamp(11px, calc(var(--cw) * 0.17), 0.9rem);
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.deal-btn {
+  position: absolute; left: 0; top: 0; z-index: 50;
+  transform: translate(-50%, -50%);
+  font-size: 0.85rem;
+  padding: 8px 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.card {
+  position: absolute; left: 0; top: 0;
+  width: var(--cw); height: var(--ch);
+  border-radius: calc(var(--cw) * 0.08);
+  transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.3, 1);
+  pointer-events: none;
+  touch-action: none;
+  outline: none;
+}
+.card.grab { pointer-events: auto; cursor: grab; }
+.card.dragging { transition: none; cursor: grabbing; }
+.no-anim .card { transition: none; }
+.board.closed .card { cursor: default; } /* after Quit: the table stays as it was, but nothing moves */
+
+.face, .back {
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.25), 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+.card.up .back, .card:not(.up) .face { display: none; }
+.card.buried .face, .card.buried .back { box-shadow: none; } /* deep in a pile: no stacked shadows */
+.face { background: var(--card); border: 1px solid var(--card-edge); overflow: hidden; }
+.face.red { color: var(--red); }
+.face.black { color: var(--black); }
+.card.dragging .face { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.25), 0 14px 28px rgba(0, 0, 0, 0.3); }
+.card.playable .face { box-shadow: 0 0 0 2px var(--brass), 0 3px 8px rgba(0, 0, 0, 0.25); }
+.card:focus-visible .face { outline: 3px solid var(--brass); outline-offset: 2px; }
+
+.idx {
+  position: absolute;
+  top: 5%; left: 7%;
+  display: grid; justify-items: center;
+  font: 700 calc(var(--cw) * 0.23) / 0.95 var(--font-display);
+}
+.idx span { font-family: var(--font-ui); font-size: 0.78em; line-height: 1.1; letter-spacing: 0; }
+.idx.br { top: auto; left: auto; bottom: 5%; right: 7%; transform: rotate(180deg); }
+
+/* Pips sit on a grid inside this box: x 0/50/100%, y 0-100%. */
+.pips { position: absolute; inset: 18% 30%; font-size: calc(var(--cw) * 0.2); line-height: 1; }
+.pips.n1 { font-size: calc(var(--cw) * 0.5); }
+.pips.n2, .pips.n3 { font-size: calc(var(--cw) * 0.25); }
+.pip { position: absolute; transform: translate(-50%, -50%); }
+.pip.flip { transform: translate(-50%, -50%) rotate(180deg); }
+
+.court {
+  position: absolute; inset: 20% 22%;
+  display: grid; place-content: center; justify-items: center;
+  border: 1px solid currentColor;
+  border-radius: calc(var(--cw) * 0.04);
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font: 700 calc(var(--cw) * 0.38) / 1 var(--font-display);
+}
+.court span { font-family: var(--font-ui); font-size: 0.5em; line-height: 1.2; }
+
+.back {
+  border: calc(var(--cw) * 0.06) solid var(--card);
+  background-color: var(--back);
+  background-image:
+    repeating-linear-gradient(45deg, var(--back-line) 0 1.5px, transparent 1.5px 6px),
+    repeating-linear-gradient(-45deg, var(--back-line) 0 1.5px, transparent 1.5px 6px);
+}
+/* Cards left in the stock, shown on its top card once one turn or less remains. */
+.back[data-left]::after {
+  content: attr(data-left);
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(var(--cw) * 0.5); height: calc(var(--cw) * 0.5);
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--black);
+  font: 700 calc(var(--cw) * 0.32) / 1 var(--font-ui);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+
+.card.shake .face { animation: shake 0.32s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+.status { margin: 0; min-height: 1.5em; color: var(--ink-muted); font-size: 0.9rem; }
+
+/* ---------- game record: steps that slide up and pin at the top, newest at the bottom ----------
+   Every character is one cell of Cousine (a subset with its own suit symbols, in fonts/), so cards
+   and pile letters line up in columns. Step labels (D, move numbers, EOP) are smaller, in Archivo. The small gap between cards is a margin, not a
+   character, so the copied record stays plain notation. */
+@font-face {
+  font-family: 'Cousine Record';
+  src: url('fonts/cousine-record.woff2') format('woff2');
+  font-display: block;
+}
+.record { display: grid; justify-items: center; gap: 8px; }
+.record-title {   /* styled like the setting labels, and lined up with High card (layoutRecord) */
+  margin: 0; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
+}
+.record-frame {
+  --step-line: 20px;   /* one line of a step (kept in step with STEP_LINE in the script) */
+  --step-pad: 3px;     /* space above and below a step's lines */
+  --bar: 16px;         /* the green end bars, a little taller than the corner radius */
+  padding: var(--bar) 0;
+  border-radius: 13px;
+  background: #5d8071;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.steps {
+  position: relative;
+  /* As narrow as the widest line allows: the deal's first line at Draw 4, "D" (about 1ch in
+     Archivo) + gap 0.8ch + four cards 8.9ch + gap 0.8ch + pile letter 1ch = 12.5ch, plus 0.5ch
+     padding each side. (A move line with "999", about 2.4ch, needs only 6.2ch + gap.) Later
+     lines of a step have no label, so they may use the label's space. */
+  width: 13.5ch;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background: var(--card);
+  font: 16px/var(--step-line) 'Cousine Record', monospace;
+  color: var(--black);
+}
+.steps::-webkit-scrollbar { display: none; }
+.steps:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+/* Steps pin at both ends of the window: scrolled past the top, each slides up over the one pinned
+   there; scrolled past the bottom, each slides down over the one pinned there. Which tile covers
+   which is set by updateStacking() as the window scrolls. */
+.step {
+  position: sticky; top: 0; bottom: 0;
+  display: grid; grid-template-columns: auto 1fr auto; column-gap: 0.8ch; align-items: baseline;
+  padding: var(--step-pad) 0.5ch;
+  background: var(--card);
+  white-space: nowrap;
+}
+/* Each step's top edge casts a shadow up onto the step above it (its blur also reaches below it,
+   which is enough edge for a step sliding down over the one pinned at the bottom). */
+.step + .step { box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.25); }
+.step .lbl { grid-column: 1; grid-row: 1; font: 400 0.85em/1 'Archivo', var(--font-ui); color: #666666; }
+.step .cards { grid-column: 1 / 3; text-align: right; }   /* only a step's first line has a label beside it */
+.step .pile { grid-column: 3; }
+.step .c + .c { margin-left: 0.3ch; }
+.step .c.r { color: var(--red); }
+.step .c.none { color: #8a8a8a; }
+.step .pile.play { color: #3d8fd1; }    /* the player's own moves */
+.step .pile.auto { color: #8a8a8a; }    /* the deal and the waste: not the player's choice */
+.step .result { grid-column: 2 / span 2; grid-row: 1; text-align: right; }
+.step .result.won { color: #4e9a2e; }
+.step .result.lost { color: var(--red); }
+.btn.small { font-size: 0.8rem; padding: 4px 10px; }
+
+/* ---------- win ---------- */
+.win {
+  position: absolute; inset: -8px;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--felt-deep) 72%, transparent);
+  border-radius: 12px;
+  z-index: 5000;
+}
+.win-card {
+  background: var(--card);
+  color: var(--black);
+  border-radius: 10px;
+  padding: 22px 28px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  display: grid; gap: 10px; justify-items: center;
+}
+.win-card h2 { margin: 0; font: 700 1.8rem/1.1 var(--font-display); }
+.win-card p { margin: 0; font-variant-numeric: tabular-nums; }
+.modal {
+  position: fixed; inset: 0; z-index: 9000;
+  display: grid; place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--felt-deep) 65%, transparent);
+}
+.modal-card:focus { outline: none; }
+.modal-card p { font-weight: 600; font-size: 1.05rem; }
+.win-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 4px; }
+.win-card .btn:not(.solid) { color: var(--black); border-color: var(--card-edge); }
+.win-card .btn:not(.solid):hover { background: color-mix(in srgb, var(--black) 7%, transparent); }
+.btn.solid { background: var(--back); color: var(--card); border-color: var(--back); }
+.btn.solid:hover { background: var(--back-line); }
+
+/* ---------- how to play ---------- */
+.howto {
+  color: var(--ink-muted);
+  font-size: 0.92rem;
+}
+.howto summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.howto summary:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+.howto ul { margin: 10px 0 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.howto b { color: var(--ink); font-weight: 600; }
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+  .card.shake .face { animation: none; }
+}
