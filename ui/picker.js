@@ -3,16 +3,21 @@
 /**
  * A small dropdown (button + listbox) that acts like a <select> for the settings code:
  * it has a `value` and fires 'change' when the player picks a different option.
+ * Options: `heading(v)` gives a heading to show above choice v in the list (or nothing), and
+ * `buttonHtml(v)` what the closed button shows for v when it differs from the list row.
  */
-export function makePicker(btn, list, name, choices, html, spoken) {
+export function makePicker(btn, list, name, choices, html, spoken, { heading = () => '', buttonHtml = html } = {}) {
   const picker = new EventTarget();
   let value = choices[0];
   let active = 0;
-  list.innerHTML = choices.map((v, i) =>
-    `<li role="option" id="${list.id}-${i}" aria-label="${spoken(v)}">${html(v)}</li>`).join('');
-  const items = [...list.children];
+  list.innerHTML = choices.map((v, i) => {
+    const head = heading(v);
+    return (head ? `<li role="presentation" class="picker-heading">${head}</li>` : '')
+      + `<li role="option" id="${list.id}-${i}" aria-label="${spoken(v)}">${html(v)}</li>`;
+  }).join('');
+  const items = [...list.querySelectorAll('li[role="option"]')];
   function show() {
-    btn.querySelector('.picker-value').innerHTML = html(value);
+    btn.querySelector('.picker-value').innerHTML = buttonHtml(value);
     btn.setAttribute('aria-label', `${name}: ${spoken(value)}`);
     items.forEach((li, i) => li.setAttribute('aria-selected', String(choices[i] === value)));
   }
@@ -57,7 +62,7 @@ export function makePicker(btn, list, name, choices, html, spoken) {
     e.stopPropagation();
   });
   list.addEventListener('click', (e) => {
-    const li = e.target.closest('li');
+    const li = e.target.closest('li[role="option"]');
     if (li) choose(items.indexOf(li));
   });
   list.addEventListener('focusout', (e) => { if (e.relatedTarget !== btn) close(false); });

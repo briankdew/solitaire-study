@@ -733,8 +733,10 @@ test('deal goes in rows, and the stock keeps deck order', () => {
   assert.equal(s.stock[s.stock.length - 1].id, at(31), 'the next card off the deck is on top of the stock');
 });
 
+const in2223 = (p) => p.settings.highest === 2 && p.settings.suits === 2 && p.settings.columns === 2;
+
 test('preset shuffles: the 12 four-card deals, one from each suit-swap pair', () => {
-  const list = G.presetShuffles().map((p) => p.deck);
+  const list = G.presetShuffles().filter(in2223).map((p) => p.deck);
   assert.equal(list.length, 12);
   const deckIds = ids(G.makeDeck(2, 2)).sort().join();
   const texts = list.map((d) => ids(d).join(' '));
@@ -756,22 +758,44 @@ test('preset shuffles: deal 1 deals A♠ to a, A♥ over 2♠ in b, 2♥ to the 
 
 test('preset shuffles: shuffleIndexOf finds each deal, and 0 for others', () => {
   const s2223 = { highest: 2, suits: 2, columns: 2, draw: 3 };
-  G.presetShuffles().forEach((p, i) => assert.equal(G.shuffleIndexOf(p.deck, s2223), i + 1));
+  G.presetShuffles().forEach((p, i) => { if (in2223(p)) assert.equal(G.shuffleIndexOf(p.deck, s2223), i + 1); });
   assert.equal(G.shuffleIndexOf(deckOf('AH', '2S', 'AS', '2H'), s2223), 0); // deal 6 with the suits traded
   assert.equal(G.shuffleIndexOf(deckOf('AS', '2S', '3S', 'AH', '2H', '3H'), { highest: 3, suits: 2, columns: 2, draw: 3 }), 0);
   // A listed order under other settings isn't that deal: choosing it would change them.
   assert.equal(G.shuffleIndexOf(deckOf('AS', '2S', 'AH', '2H'), { ...s2223, draw: 1 }), 0);
 });
 
-test('preset shuffles: each one carries its setup with Draw 3', () => {
+test('preset shuffles: each one carries its list\'s setup with Draw 3, numbered within its list', () => {
   const all = G.presetShuffles();
-  assert.equal(all.length, 12);
-  all.forEach((p, i) => {
-    assert.equal(p.n, i + 1);
-    assert.deepEqual(p.settings, { highest: 2, suits: 2, columns: 2, draw: 3 });
-    assert.equal(G.shuffleIndexOf(p.deck, p.settings), i + 1);
-    assert.doesNotThrow(() => G.prepareDeck(p.deck, p.settings));
-  });
+  assert.equal(all.length, G.SHUFFLE_LISTS.reduce((sum, list) => sum + list.deals.length, 0));
+  let i = 0;
+  for (const list of G.SHUFFLE_LISTS) {
+    list.deals.forEach((_, k) => {
+      const p = all[i];
+      assert.equal(p.n, k + 1);
+      assert.deepEqual(p.settings, { highest: list.highest, suits: list.suits, columns: list.columns, draw: 3 });
+      assert.equal(G.shuffleIndexOf(p.deck, p.settings), i + 1);
+      assert.doesNotThrow(() => G.prepareDeck(p.deck, p.settings));
+      i++;
+    });
+  }
+});
+
+test('preset shuffles: 4223 deal 1 replays the won game it was reconstructed from', () => {
+  const S4223 = { highest: 4, suits: 2, columns: 2, draw: 3 };
+  const p = G.presetShuffles().find((x) => x.settings.highest === 4 && x.n === 1);
+  let s = G.dealPending(G.prepareDeck(p.deck, S4223));
+  assert.equal(G.dealTokens(s).map((t) => G.tokenText(t)).join(' '), 'ASa 4Hb 3SAH2Sw');
+  const plays = [[T(0, 0), H(0)], [T(1, 1), T(0)], [WASTE, H(0)], [WASTE, H(1)], [WASTE, H(0)], 'draw',
+    [WASTE, H(1)], [T(1, 0), H(1)], [T(0, 0), H(1)], [WASTE, H(0)]];
+  const text = [];
+  for (const m of plays) {
+    const next = m === 'draw' ? G.draw(s) : G.move(s, ...m);
+    text.push(G.tokenText(m === 'draw' ? G.turnToken(s, next) : G.moveToken(s, ...m)));
+    s = next;
+  }
+  assert.equal(text.join(' '), 'ASh--a 4Ha3Hb 2ShAHw AHh3Sw 3Sh--w 4S2Hw 2Hh4Sw 3Hh--b 4Hh--a 4Sh--w');
+  assert.equal(G.isWon(s), true);
 });
 
 test('prepareDeck refuses an order that is not the settings\' deck', () => {

@@ -27,7 +27,7 @@ function saveOpen() {
   try { localStorage.setItem(STORE_KEY, open ? 'on' : 'off'); } catch (e) { /* ignore */ }
 }
 
-/** The custom shuffle being played (1–12), or 0. */
+/** The custom shuffle being played (its menu value: position in G.presetShuffles() plus 1), or 0. */
 function shuffleNumber() {
   return S.shuffleState ? G.shuffleIndexOf(S.shuffleState.deck, S.settings) : 0;
 }
@@ -223,7 +223,7 @@ export function updateDiagram() {
   if (!show) { shownKey = ''; shownCount = 0; winPanel.style.paddingBottom = ''; return; }
 
   const g = computeGeom(model);
-  const label = (k) => model.snaps[k].label || `${G.setupText(S.shuffleState)} D/CS${shuffleNumber()}`;
+  const label = (k) => model.snaps[k].label || `${G.setupText(S.shuffleState)} D/CS${G.presetShuffles()[shuffleNumber() - 1].n}`;
   const key = [g.width, g.cw, shuffleNumber(), S.record ? S.record.map((t) => G.tokenText(t)).join(' ') : ''].join('|');
   const sizeChanged = !geom || geom.width !== g.width || geom.height !== g.height;
   geom = g;
