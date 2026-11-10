@@ -209,6 +209,13 @@
         '2S AS AH 2H', '2S AS 2H AH', '2S AH AS 2H', '2S AH 2H AS', '2S 2H AS AH', '2S 2H AH AS',
       ],
     },
+    {
+      // 8-card deck (high card 4, 2 suits): deals added one at a time, as they come up in study.
+      highest: 4, suits: 2, columns: 2,
+      deals: [
+        'AS 3H 4H 3S AH 2S 4S 2H', // reconstructed from a won game's record, 2026-11-10
+      ],
+    },
   ];
   const toDeck = (text) => text.split(' ').map((id) => ({ ...parseCard(id), faceUp: false }));
 

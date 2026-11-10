@@ -29,7 +29,7 @@ async function openApp(page, { seed = 1 } = {}) {
 /** Choose a deal from the Custom shuffle menu (1-12), or 0 for Random. */
 async function pickShuffle(page, n) {
   await page.locator('#shuffleBtn').click();
-  await page.locator('#shuffleList li').nth(n).click();
+  await page.locator('#shuffleList li[role="option"]').nth(n).click();
 }
 
 /** Wait until no card is still sliding (CSS transitions show up in getAnimations). */

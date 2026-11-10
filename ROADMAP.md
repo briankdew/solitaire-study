@@ -137,6 +137,10 @@ a deck order, top card first, shown left to right after its number. Choosing one
 settings to the ones its list gives (high card, suits, columns) with Draw 3. The first list is the
 4-card deck (high card 2, 2 suits, 2 columns): 12 deals, one from each pair that trading the suits
 makes the same game. More lists go in `SHUFFLE_LISTS` in game.js.
+Added 2026-11-10: a 4223 list (8 cards) with one deal, `AS 3H 4H 3S AH 2S 4S 2H`, reconstructed from
+the record of a won game. The menu now shows each list under a setup heading, numbering restarts in
+each list (the diagram label uses that number: `4223 D/CS1`), and a deal longer than 4 cards shows
+`number · setup` on the closed menu button.
 
 The deal is now standard Klondike for every setting: rows from the top of the deck (one card to each
 column, first face up, then a row from the next column), and the leftover stock keeps deck order, so
