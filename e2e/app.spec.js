@@ -178,8 +178,8 @@ test.describe('finishing, take-backs and the win panel', () => {
     await card(page, 'AS').click();
     await card(page, 'AH').click();   // A♥ up; 2♠ shows in b
     await settle(page);
-    await card(page, 'AH').click();   // no other column took it before, so this is a new move onto 2♠
-    await expect.poll(() => recordText(page)).toBe('D A♠ a A♥ b 2♥ w 1 A♠ h -- a 2 A♥ h 2♠ b 3 A♥ b -- h');
+    await card(page, 'AH').click();   // no other column took it before, so this is a new move onto 2♠ (judged ?)
+    await expect.poll(() => recordText(page)).toBe('D A♠ a A♥ b 2♥ w 1 A♠ h -- a 2 A♥ h 2♠ b 3 ?A♥ b -- h');
   });
 
   test('clicking a card again on its foundation sends it to the column instead (take-back)', async ({ page }) => {
@@ -189,9 +189,23 @@ test.describe('finishing, take-backs and the win panel', () => {
     await card(page, 'AH').click();   // to its foundation, though column a could take it
     await settle(page);
     await card(page, 'AH').click();   // straight back: rewritten as the move to column a
-    await expect.poll(() => recordText(page)).toBe('D 2♠ a A♥ b 2♥ w 1 A♥ a A♠ b');
+    await expect.poll(() => recordText(page)).toBe('D 2♠ a A♥ b 2♥ w 1 ?A♥ a A♠ b');
     await page.locator('#undoBtn').click();
     await expect.poll(() => recordText(page)).toBe('D 2♠ a A♥ b 2♥ w');
+  });
+
+  test('a judged move: ? before the card in the record, first in Copy record\'s token', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await openApp(page);
+    await page.locator('#autoFinishChk').uncheck();
+    await pickShuffle(page, 7);   // 2♠ A♠ A♥ 2♥: a 2♠, b A♥ over A♠, waste 2♥
+    await deal(page);
+    await dragTo(page, card(page, 'AH'), card(page, '2S'));   // an Ace onto a 2: allowed, judged a mistake
+    await expect.poll(() => recordText(page)).toBe('D 2♠ a A♥ b 2♥ w 1 ?A♥ a A♠ b');
+    await expect(page.locator('#steps .step .j')).toHaveText('?');
+    await page.locator('#copyRecordBtn').click();
+    const text = await page.evaluate(() => navigator.clipboard.readText());
+    expect(text).toBe('Setup: 2223\nDeal: 2Sa AHb 2Hw\nPlay: ?AHaASb');
   });
 
   test('the win panel: Same deal, New deal and Quit', async ({ page }) => {
@@ -218,6 +232,92 @@ test.describe('finishing, take-backs and the win panel', () => {
     await expect(page.locator('#winPanel')).toBeHidden();
     await expect(page.locator('.deal-btn')).toBeHidden();       // shuffled and dealt in one step
     await expect.poll(() => recordText(page)).toMatch(/^D /);
+  });
+});
+
+test.describe('game play diagram', () => {
+  const snaps = (page) => page.locator('#diagram .dg-snap');
+  const heads = async (page) => (await page.locator('#diagram .dg-head-text').allTextContents());
+  const strip = (page) => page.locator('#diagram .dg-strip');
+  async function openDiagram(page, n) {
+    await openApp(page);
+    await page.locator('#autoFinishChk').uncheck();
+    await expect(page.locator('#diagramBtn')).toBeDisabled();   // random shuffles have no diagram
+    await pickShuffle(page, n);
+    await expect(page.locator('#diagramBtn')).toBeEnabled();
+    await page.locator('#diagramBtn').click();
+    await expect(page.locator('#diagram')).toBeVisible();
+    await deal(page);
+  }
+
+  test('builds a snapshot per move, with the play and every other legal play, and Undo takes it back', async ({ page }) => {
+    await openDiagram(page, 1);
+    await expect(snaps(page)).toHaveCount(1);
+    expect(await heads(page)).toEqual(['2223 D/CS1']);
+    await card(page, 'AS').click();
+    await expect(snaps(page)).toHaveCount(2);
+    expect(await heads(page)).toEqual(['2223 D/CS1', '1']);
+    const second = snaps(page).nth(1);
+    await expect(second.locator('.dg-play')).toHaveCount(1);
+    await expect(second.locator('.dg-possible')).toHaveCount(1);   // A♥ b→h♥
+    await expect(second.locator('.dg-same')).toHaveCount(2);       // w and b
+    await card(page, 'AH').click();
+    await expect(snaps(page).nth(2).locator('.dg-reveal')).toHaveCount(1);   // 2♠ turned over in b
+    await page.locator('#undoBtn').click();
+    await expect(snaps(page)).toHaveCount(2);
+    await page.locator('#diagramBtn').click();
+    await expect(page.locator('#diagram')).toBeHidden();
+  });
+
+  test('the take-back rewrites the last snapshot instead of adding one', async ({ page }) => {
+    await openDiagram(page, 1);
+    await card(page, 'AS').click();
+    await card(page, 'AH').click();
+    await card(page, '2H').click();
+    await settle(page);
+    await card(page, '2H').click();   // back off the foundation: rewritten as 2♥ w→a
+    await expect.poll(() => recordText(page)).toBe('D A♠ a A♥ b 2♥ w 1 A♠ h -- a 2 A♥ h 2♠ b 3 2♥ a -- w');
+    await expect(snaps(page)).toHaveCount(4);
+    const cells = await snaps(page).nth(3).locator('.dg-card').allTextContents();
+    expect(cells.map((t) => t.replace(/\uFE0E/g, ''))).toEqual(['2♥', '2♠', 'A♠', 'A♥']);   // a, b, h♠, h♥; waste empty
+  });
+
+  test('a judged move shows ? beside the card where it landed', async ({ page }) => {
+    await openDiagram(page, 7);   // a 2♠, b A♥ over A♠, waste 2♥
+    await dragTo(page, card(page, 'AH'), card(page, '2S'));
+    await expect(snaps(page)).toHaveCount(2);
+    await expect(snaps(page).nth(1).locator('.dg-mark')).toHaveText('?');
+    await expect(snaps(page).nth(0).locator('.dg-mark')).toHaveCount(0);
+  });
+
+  test('older snapshots slide off to the left, and back on Undo; the win card sits above the diagram', async ({ page }) => {
+    await openDiagram(page, 1);
+    for (const id of ['AS', '2H', 'AH', '2S']) { await card(page, id).click(); await settle(page); }
+    await expect(snaps(page)).toHaveCount(5);
+    await expect.poll(() => strip(page).evaluate((e) => e.style.transform)).toBe('translateX(0px)');
+    await card(page, '2H').click();
+    await expect(snaps(page)).toHaveCount(6);
+    await expect.poll(() => strip(page).evaluate((e) => e.style.transform)).not.toBe('translateX(0px)');
+    await expect(page.locator('#winPanel')).toBeVisible();
+    const win = await page.locator('.win-card').first().boundingBox();
+    const dia = await page.locator('#diagram').boundingBox();
+    expect(win.y + win.height).toBeLessThanOrEqual(dia.y);
+    await page.keyboard.press('Control+z');   // Undo the winning move
+    await expect(snaps(page)).toHaveCount(5);
+    await expect.poll(() => strip(page).evaluate((e) => e.style.transform)).toBe('translateX(0px)');
+  });
+
+  test('stays open across a reload, and stays put whatever the columns', async ({ page }) => {
+    await openDiagram(page, 1);
+    await page.reload();
+    await pickShuffle(page, 2);
+    await expect(page.locator('#diagram')).toBeVisible();
+    // Undo: on the status line, its right edge level with the last foundation's.
+    const undo = await page.locator('#undoBtn').boundingBox();
+    const lastFound = await page.locator('.slot.foundation').last().boundingBox();
+    const status = await page.locator('#status').boundingBox();
+    expect(Math.round(undo.x + undo.width)).toBe(Math.round(lastFound.x + lastFound.width));
+    expect(Math.abs((undo.y + undo.height / 2) - (status.y + status.height / 2))).toBeLessThan(1);
   });
 });
 

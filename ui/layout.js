@@ -1,7 +1,8 @@
-// Fitting the Game Record panel and the Undo button around the table at each page width.
+// Fitting the Game Record panel, the Undo button and the diagram toggle around the table at each page width.
 import { S } from './shared.js';
 import { board, copyRecordBtn, highestLabel, recordEl, recordFrame, recordTitle, statusEl, stepsEl, tableWrap, undoBtn } from './dom.js';
 import { measureSteps, updateStacking } from './record.js';
+import { placeDiagram } from './diagram.js';
 
 // The record's window is a whole number of move steps tall (a move step is two lines), less one waste step.
 // Beside the table, the title lines up with the High card label across the table (or with the
@@ -33,15 +34,28 @@ export function layoutRecord() {
   updateStacking();
   placeUndo();
 }
-// Undo goes under column a, one card wide. Beside the table its bottom lines up with the bottom of
-// the record's frame; below the table (narrow screens) it sits at the bottom of the play area.
+// Undo sits on the status line, centered on it, its right edge level with the right edge of the
+// last foundation, so it stays in the same place whatever the number of columns. The status text
+// keeps clear of it. The diagram's toggle takes the row Undo used to have: beside the table, level
+// with the bottom of the record's frame; below the table (narrow screens), at the bottom of the
+// play area.
+const UNDO_GAP = 12;   // between the status text and Undo
 export function placeUndo() {
-  const wrapTop = tableWrap.getBoundingClientRect().top;
+  const wrap = tableWrap.getBoundingClientRect();
+  const x = S.L.found[S.L.found.length - 1].x + S.L.cw - undoBtn.offsetWidth;
+  statusEl.style.paddingRight = '';
+  const over = statusEl.getBoundingClientRect().right - (wrap.left + x - UNDO_GAP);
+  if (over > 0) statusEl.style.paddingRight = Math.ceil(over) + 'px';
+  const st = statusEl.getBoundingClientRect();
+  const y = st.top + st.height / 2 - wrap.top - undoBtn.offsetHeight / 2;
+  undoBtn.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
   const bottom = narrowLayout.matches
-    ? board.getBoundingClientRect().top - wrapTop + S.L.fixedHeight - 8
-    : recordFrame.getBoundingClientRect().bottom - wrapTop;
-  undoBtn.style.transform = `translate(${S.L.tab[0].x}px, ${Math.round(bottom - undoBtn.offsetHeight)}px)`;
+    ? board.getBoundingClientRect().top - wrap.top + S.L.fixedHeight - 8
+    : recordFrame.getBoundingClientRect().bottom - wrap.top;
+  placeDiagram(bottom);
 }
+// A message that wraps to another line moves the table down, so place Undo again when the status line changes height.
+if (window.ResizeObserver) new ResizeObserver(() => { if (S.L) placeUndo(); }).observe(statusEl);
 for (const q of [settingsBelow, narrowLayout, stackedLayout]) q.addEventListener('change', () => { if (S.L) layoutRecord(); });
 // Web fonts can change the labels' heights once they load, so line the title up again then.
 if (document.fonts) document.fonts.ready.then(() => { if (S.L) layoutRecord(); });

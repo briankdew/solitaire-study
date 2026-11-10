@@ -31,12 +31,13 @@ function stepsOf(tokens) {
 }
 
 // One line of a step: cards right-aligned (-- when the pile is empty), then the pile letter,
-// blue for the player's own moves and gray for the deal and the waste.
+// blue for the player's own moves and gray for the deal and the waste. A judged move's first
+// line starts with its judgment (? A♥ a).
 // `row` places the line explicitly, so every letter stays beside its own cards.
-function lineHTML(ids, letter, own, row) {
-  const cards = ids.length
+function lineHTML(ids, letter, own, row, mark = '') {
+  const cards = (mark ? `<span class="j">${mark}</span>` : '') + (ids.length
     ? ids.map((id) => `<span class="c${isRedId(id) ? ' r' : ''}">${id[0]}${SUIT_CHAR[id[1]]}</span>`).join('')
-    : '<span class="c none">--</span>';
+    : '<span class="c none">--</span>');
   const at = `style="grid-row:${row}"`;
   return `<span class="cards" ${at}>${cards}</span><span class="pile ${own ? 'play' : 'auto'}" ${at}>${letter}</span>`;
 }
@@ -54,7 +55,7 @@ function stepEl(step) {
   } else if (step.kind === 'move') {
     const t = step.token;
     const left = t.from === 'w' ? fanOf(t) : t.top ? [t.top] : [];
-    html = `<span class="lbl">${step.number}</span>` + lineHTML([t.card], t.to, true, 1) + lineHTML(left, t.from, t.from !== 'w', 2);
+    html = `<span class="lbl">${step.number}</span>` + lineHTML([t.card], t.to, true, 1, G.judgeToken(t)) + lineHTML(left, t.from, t.from !== 'w', 2);
   } else if (step.kind === 'turn') {
     html = lineHTML(fanOf(step.token), 'w', false, 1);
   } else {
