@@ -28,10 +28,10 @@ test.describe('start and custom shuffles', () => {
     const items = page.locator('#shuffleList li[role="option"]');
     await expect(items).toHaveCount(14);
     await expect(items.nth(0)).toHaveText('Random');
-    await expect(items.nth(1)).toHaveAttribute('aria-label', /^Deal 1 of 2223: Ace of spades, 2 of spades, Ace of hearts, 2 of hearts$/);
-    await expect(items.nth(12)).toHaveAttribute('aria-label', /^Deal 12 of 2223: 2 of spades, 2 of hearts, Ace of hearts, Ace of spades$/);
+    await expect(items.nth(1)).toHaveAttribute('aria-label', /^Setup 2223, deal 1: Ace of spades, 2 of spades, Ace of hearts, 2 of hearts$/);
+    await expect(items.nth(12)).toHaveAttribute('aria-label', /^Setup 2223, deal 12: 2 of spades, 2 of hearts, Ace of hearts, Ace of spades$/);
     await expect(items.nth(13)).toHaveAttribute('aria-label',
-      /^Deal 1 of 4223: Ace of spades, 3 of hearts, 4 of hearts, 3 of spades, Ace of hearts, 2 of spades, 4 of spades, 2 of hearts$/);
+      /^Setup 4223, deal 1: Ace of spades, 3 of hearts, 4 of hearts, 3 of spades, Ace of hearts, 2 of spades, 4 of spades, 2 of hearts$/);
   });
 
   test('the 8-card deal sets up 4223 and deals its order', async ({ page }) => {
@@ -41,6 +41,7 @@ test.describe('start and custom shuffles', () => {
     await expect(page.locator('#shuffleBtn .picker-value')).toHaveText('1· 4223');   // 8 chips don't fit
     await page.locator('#shuffleBtn').click();
     await expect(page.locator('#shuffleList .picker-heading')).toHaveText(['2223', '4223']);
+    await expect(page.getByRole('group', { name: '4223' }).getByRole('option')).toHaveCount(1);
     await page.keyboard.press('Escape');
     await deal(page);
     await expect.poll(() => recordText(page)).toBe('D A♠ a 4♥ b 3♠A♥2♠ w');

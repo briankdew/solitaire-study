@@ -26,7 +26,7 @@ async function openApp(page, { seed = 1 } = {}) {
   await expect(page.locator('.deal-btn')).toBeVisible();
 }
 
-/** Choose a deal from the Custom shuffle menu (1-12), or 0 for Random. */
+/** Choose a Custom shuffle menu row by position (0 Random, 1-12 the 2223 deals, 13 the 4223 deal 1). */
 async function pickShuffle(page, n) {
   await page.locator('#shuffleBtn').click();
   await page.locator('#shuffleList li[role="option"]').nth(n).click();
