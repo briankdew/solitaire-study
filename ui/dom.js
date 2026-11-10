@@ -28,5 +28,7 @@ export const highestLabel = highestSel.previousElementSibling;   // the "High ca
 export const stepsEl = document.getElementById('steps');
 export const endGameBtn = document.getElementById('endGameBtn');
 export const copyRecordBtn = document.getElementById('copyRecordBtn');
+export const diagramBtn = document.getElementById('diagramBtn');
+export const diagramEl = document.getElementById('diagram');
 
 export const tableWrap = board.parentElement;

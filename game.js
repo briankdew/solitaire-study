@@ -490,6 +490,7 @@
    *           source's new top card + source; -- when the source is now empty:
    *           ADhACb, 2Dh--w
    *   result — W or L and the number of moves, at the end of a finished game: W104, L34
+   * A judged move starts with its judgment: ?AHa--h (see judgeMove).
    * The deal is written as a turn token followed by one deal token per column.
    * A turn with the stock empty also turns the waste back over first; the
    * token names the cards turned up, as for any other turn.
@@ -560,6 +561,31 @@
     return [...tokens.slice(1, n), tokens[0], ...tokens.slice(n)];
   }
 
+  /* ---------- judgments ---------- */
+  /*
+   * Moves are judged with the chess marks: ! good, !! brilliant, ? mistake, ?? blunder,
+   * !? interesting, ?! dubious. A judgment is never stored: it is worked out from the move each
+   * time, so changing these rules re-judges every game already recorded. The rules so far
+   * (2026-11-08) mark two clearly regressive moves as mistakes, since winning in the fewest moves
+   * means every foundation must fill:
+   *   ?  an Ace played to a column (from the waste, a column or its foundation)
+   *   ?  a 2 taken off its foundation
+   */
+  function judgeMove(card, fromPile, toPile) {
+    const rank = typeof card === 'string' ? RANK_OF[card[0]] : card.rank;
+    if (rank === 1 && toPile === 'tableau') return '?';
+    if (rank === 2 && fromPile === 'foundation') return '?';
+    return '';
+  }
+
+  const PILE_OF_LETTER = (letter) => (letter === 'w' ? 'waste' : letter === 'h' ? 'foundation' : 'tableau');
+
+  /** The judgment of a move token ('?', or '' for none). */
+  function judgeToken(token) {
+    if (!token || token.type !== 'move') return '';
+    return judgeMove(token.card, PILE_OF_LETTER(token.from), PILE_OF_LETTER(token.to));
+  }
+
   /** Token for a legal move, worked out before it is made; null if the move is illegal. */
   function moveToken(state, from, to) {
     const next = move(state, from, to);
@@ -585,7 +611,7 @@
     if (token.type === 'turn') return token.cards.map(cardText).join('') + 'w';
     if (token.type === 'deal') return cardText(token.card) + token.to;
     if (token.type === 'result') return (token.won ? 'W' : 'L') + token.moves;
-    return cardText(token.card) + token.to + (token.top ? cardText(token.top) : '--') + token.from;
+    return judgeToken(token) + cardText(token.card) + token.to + (token.top ? cardText(token.top) : '--') + token.from;
   }
 
   /** Record header: highest card, suits, columns, draw (e.g. K473). */
@@ -604,6 +630,165 @@
     const split = dealLength(tokens);
     const line = (list) => list.map((t) => tokenText(t)).join(' ');
     return `Setup: ${setupText(state)}\nDeal: ${line(tokens.slice(0, split))}\nPlay: ${line(tokens.slice(split))}`;
+  }
+
+  /* ---------- replay and the game play diagram ---------- */
+
+  /**
+   * Every legal move in a position: the top waste card, every face-up column card (with the
+   * cards on it) and every foundation's top card, to every column and foundation that takes it.
+   * Nothing is left out, not even moves that change nothing or take a card back off a foundation.
+   */
+  function legalMoves(state) {
+    const sources = [];
+    if (state.waste.length) sources.push({ pile: 'waste' });
+    state.tableau.forEach((col, index) => col.forEach((c, cardIndex) => {
+      if (c.faceUp) sources.push({ pile: 'tableau', index, cardIndex });
+    }));
+    state.foundations.forEach((pile, index) => { if (pile.length) sources.push({ pile: 'foundation', index }); });
+    const targets = [
+      ...state.tableau.map((_, index) => ({ pile: 'tableau', index })),
+      ...state.foundations.map((_, index) => ({ pile: 'foundation', index })),
+    ];
+    const out = [];
+    for (const from of sources) for (const to of targets) if (isLegalMove(state, from, to)) out.push({ from, to });
+    return out;
+  }
+
+  /** Where a move token's card is in `state` (the token names the card and its pile), or null. */
+  function tokenSource(state, token) {
+    if (token.from === 'w') {
+      const t = top(state.waste);
+      return t && t.id === token.card ? { pile: 'waste' } : null;
+    }
+    if (token.from === 'h') {
+      const index = state.foundations.findIndex((p) => p.length && top(p).id === token.card);
+      return index >= 0 ? { pile: 'foundation', index } : null;
+    }
+    const index = COLUMN_LETTERS.indexOf(token.from);
+    const col = index >= 0 ? state.tableau[index] : null;
+    const cardIndex = col ? col.findIndex((c) => c.id === token.card) : -1;
+    return cardIndex >= 0 ? { pile: 'tableau', index, cardIndex } : null;
+  }
+
+  /** Where a move token's card went: its suit's foundation for h, otherwise the lettered column. */
+  function tokenTarget(state, token) {
+    if (token.to === 'h') {
+      const index = (SUITS_BY_COUNT[state.foundations.length] || []).indexOf(token.card[1]);
+      return index >= 0 ? { pile: 'foundation', index } : null;
+    }
+    const index = COLUMN_LETTERS.indexOf(token.to);
+    return index >= 0 && index < state.tableau.length ? { pile: 'tableau', index } : null;
+  }
+
+  /**
+   * Replay a game record from its dealt position: one step per action, the deal first.
+   * Each step is { type: 'deal' | 'move' | 'draw', state } (the position after it), and a move
+   * also has `from` and `to`. A result token ends the replay. Returns null when the record
+   * doesn't fit the deal (a token that names the wrong card, or a move that isn't legal).
+   */
+  function replayRecord(dealt, tokens) {
+    if (!dealt || dealt.pending || !Array.isArray(tokens)) return null;
+    const split = dealLength(tokens);
+    const dealText = (list) => list.map((t) => tokenText(t)).join(' ');
+    if (dealText(dealTokens(dealt)) !== dealText(tokens.slice(0, split))) return null;
+    let state = dealt;
+    const steps = [{ type: 'deal', state }];
+    for (const token of tokens.slice(split)) {
+      if (token.type === 'result') break;
+      if (token.type === 'turn') {
+        const next = draw(state);
+        const turned = turnToken(state, next);
+        if (!turned || turned.cards.join() !== token.cards.join()) return null;
+        steps.push({ type: 'draw', state: next });
+        state = next;
+        continue;
+      }
+      if (token.type !== 'move') return null;
+      const from = tokenSource(state, token);
+      const to = from && tokenTarget(state, token);
+      const next = to && move(state, from, to);
+      if (!next) return null;
+      steps.push({ type: 'move', state: next, from, to });
+      state = next;
+    }
+    return steps;
+  }
+
+  /**
+   * The game play diagram for replayed steps: one row per pile (waste, columns a…, then each
+   * foundation) and one snapshot per step. A snapshot holds what each pile shows (the waste's fan,
+   * a column's or foundation's top card) and the links from the snapshot before it:
+   *   play     — the move made (from row → to row)
+   *   draw     — a turn of the stock (waste row → waste row)
+   *   reveal   — the move turned over the face-down card under it
+   *   promote  — the move uncovered a card that was already face up (or the next waste card)
+   *   same     — a pile that didn't change (empty piles get no line)
+   *   possible — every other legal move in the snapshot before (from row → to row), once per pair of rows
+   * The deal's snapshot has no links. Rows and links name piles by row number. A judged move's
+   * destination cell also has `mark` (its judgment, see judgeMove).
+   */
+  function diagramModel(steps) {
+    const first = steps[0].state;
+    const nCols = first.tableau.length;
+    const suits = SUITS_BY_COUNT[first.foundations.length] || [];
+    const rows = [
+      { pile: 'waste', letter: 'w' },
+      ...first.tableau.map((_, i) => ({ pile: 'tableau', letter: COLUMN_LETTERS[i] })),
+      ...first.foundations.map((_, i) => ({ pile: 'foundation', letter: 'h', suit: suits[i] })),
+    ];
+    const rowOf = (loc) => (loc.pile === 'waste' ? 0 : loc.pile === 'tableau' ? 1 + loc.index : 1 + nCols + loc.index);
+    const pileAt = (state, r) => (r === 0 ? state.waste : r <= nCols ? state.tableau[r - 1] : state.foundations[r - 1 - nCols]);
+    const pileKey = (pile) => pile.map((c) => c.id + (c.faceUp ? '' : '*')).join(' ');
+    const cellOf = (state, r) => {
+      if (r === 0) return { cards: fanIds(state) };
+      const t = top(pileAt(state, r));
+      return { cards: t && t.faceUp ? [t.id] : [] };
+    };
+    let moves = 0;
+    const snaps = steps.map((step, k) => {
+      const cells = rows.map((_, r) => cellOf(step.state, r));
+      if (step.type === 'deal') return { type: 'deal', label: null, cells, links: [] };
+      const prev = steps[k - 1].state;
+      const links = [];
+      let fromRow = 0, toRow = 0;
+      if (step.type === 'move') {
+        fromRow = rowOf(step.from);
+        toRow = rowOf(step.to);
+      }
+      // Every legal move in the snapshot before, except the one made.
+      const seen = new Set(step.type === 'move' ? [fromRow + '>' + toRow] : []);
+      for (const m of legalMoves(prev)) {
+        const pair = rowOf(m.from) + '>' + rowOf(m.to);
+        if (seen.has(pair)) continue;
+        seen.add(pair);
+        links.push({ type: 'possible', from: rowOf(m.from), to: rowOf(m.to) });
+      }
+      rows.forEach((_, r) => {
+        const before = pileAt(prev, r), after = pileAt(step.state, r);
+        if (step.type === 'move' && (r === fromRow || r === toRow)) {
+          if (r === fromRow && after.length) {
+            // The card now on top was face down before the move: a reveal; otherwise it was already known.
+            const wasDown = r !== 0 && !before[after.length - 1].faceUp;
+            links.push({ type: wasDown ? 'reveal' : 'promote', from: r, to: r });
+          }
+          return;
+        }
+        if (step.type === 'draw' && r === 0) return;
+        if (after.length && pileKey(before) === pileKey(after)) links.push({ type: 'same', from: r, to: r });
+      });
+      if (step.type === 'draw') {
+        links.push({ type: 'draw', from: 0, to: 0 });
+        return { type: 'draw', label: 'Draw', cells, links };
+      }
+      links.push({ type: 'play', from: fromRow, to: toRow });
+      // A judged move shows its judgment beside the card, where it landed.
+      const mark = judgeMove(pickUp(prev, step.from)[0], step.from.pile, step.to.pile);
+      if (mark) cells[toRow] = { ...cells[toRow], mark };
+      moves++;
+      return { type: 'move', label: String(moves), cells, links };
+    });
+    return { rows, snaps };
   }
 
   return {
@@ -671,5 +856,10 @@
     tokenText,
     setupText,
     recordText,
+    judgeMove,
+    judgeToken,
+    legalMoves,
+    replayRecord,
+    diagramModel,
   };
 });

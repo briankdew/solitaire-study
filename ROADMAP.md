@@ -55,16 +55,41 @@ side of the playing area, newest at the bottom. Mock-up received 2026-11-05; det
   carousel). End game stops play like Quit (no undo). The result is part of the official
   notation: the last token on the Play line (`W7`, `L34`), counting move tokens.
 
-## 3. Node diagram of the game
+## 3. Game play diagram — first version built 2026-11-08 (custom shuffles only)
 
-Show the game's tokens as nodes, left to right, so decision forks can be studied wherever two or
-more plays were possible. The goal is to visualize, evaluate and eventually automate play of every
-possible game for a shuffle.
+Terminology draft (2026-11-09, not yet discussed): see TERMINOLOGY.md.
 
-- First version: the diagram builds as the game is played. It shows the path taken, with a fork
-  wherever other plays were available, and a stub for each path not taken.
-- It is drawn over the play area only when the **Node Diagram** button is clicked.
-- **Waiting on the user's mock-up.**
+Show the game as it is played so decision points can be studied wherever two or more plays were
+possible. The goal is to visualize, evaluate and eventually automate play of every possible game
+for a shuffle.
+
+Built (from the user's swimlane mock-ups): a panel over the lower play area, toggled by the
+**Game play diagram** button at the bottom of the play area (remembered; enabled for the 12 custom shuffles only).
+Rows are the piles (w, columns, each foundation), each showing its top card (the waste its fan,
+covered cards shaded). One snapshot per action: the deal (`2223 D/CS1`), each numbered move, each
+**Draw** (not numbered). Lines between snapshots: no change (white), reveal (dashed white arrow:
+a face-down card turned over), promote (dotted white arrow: a known card comes to the top, in the
+waste or a column), possible play (dashed gold: every other legal move, unpruned), draw
+(dashed gold arrow), selected play (solid gold arrow). No stubs for the current position. Older
+snapshots slide off to the left; Undo slides them back. The win card centers above the diagram.
+
+Judgments (2026-11-08): moves are judged with the chess marks (! good, !! brilliant, ? mistake,
+?? blunder, !? interesting, ?! dubious). Nothing is blocked: the player decides, by click or drag.
+So far only ? is used, for two clearly regressive moves: an Ace played to a column (from anywhere)
+and a 2 taken off its foundation. A judgment is never stored; `G.judgeMove` works it out from the
+move, so changing the rules re-judges old games. Shown before the card in the record panel
+(`? A♥ a`), first in the official token (`?AHa--h`), and after the card where it landed in the
+diagram (`A♥ ?`, #666666). Later: ?? or !? for a move or draw made while a progressive play was
+showing; ! on the cards of better moves not played, once move quality can be quantified.
+
+How it works: the diagram is rebuilt from the game record replayed on the dealt shuffle
+(`G.replayRecord`, `G.diagramModel`, `G.legalMoves` in game.js; drawing in ui/diagram.js), so
+Undo, the take-back and a reloaded game all follow. The same replay is what saved games (item 5)
+will need, and the diagram is SVG, so exporting the finished diagram as an image is a small step.
+
+Next, after the user tries it: classify possible plays (progressive / null / regressive) to decide
+what to prune; open item 7 from the design talk (face-down counts and runs in column cells);
+expand beyond the custom shuffles.
 
 ## 4. Fixed-size play area, with controls on the right — done 2026-11-05 (fine-tuning to follow)
 
@@ -101,6 +126,9 @@ To decide when this is picked up:
   the full game so it can be resumed where it stopped.
 - How saved games are listed, opened, and tied to the study work (e.g. which deals of a setup have
   been played).
+- The user wants (2026-11-08): saved game records that replay automatically, and an image of each
+  finished game play diagram to export and study. `G.replayRecord` already replays a record on its
+  dealt shuffle, and the diagram is drawn as SVG.
 
 ## 6. Shuffle menu and the standard deal — done 2026-11-07
 

@@ -1,7 +1,8 @@
 // Pointer, button and keyboard input.
 import { DRAG_THRESHOLD, G, S, Z, say } from './shared.js';
-import { board, confirmCancel, confirmContinue, confirmModal, endGameBtn, newBtn, newDealBtn, quitBtn, quitGameBtn, restartBtn, sameDealBtn, undoBtn } from './dom.js';
+import { board, confirmCancel, confirmContinue, confirmModal, diagramBtn, endGameBtn, newBtn, newDealBtn, quitBtn, quitGameBtn, restartBtn, sameDealBtn, undoBtn } from './dom.js';
 import { basePos, cardEls, dealBtn, render, slots } from './table.js';
+import { toggleDiagram } from './diagram.js';
 import { closeConfirm, dealShuffle, drawFromStock, endGame, newDealNow, newShuffle, playByClick, quitGame, restartGame, tryMove, undo } from './actions.js';
 
 /* ---------- pointer: tap and drag ---------- */
@@ -93,6 +94,7 @@ newDealBtn.addEventListener('click', newDealNow);
 sameDealBtn.addEventListener('click', restartGame);
 quitBtn.addEventListener('click', quitGame);
 undoBtn.addEventListener('click', undo);
+diagramBtn.addEventListener('click', toggleDiagram);
 
 board.addEventListener('keydown', (e) => {
   if (e.key !== 'Enter' && e.key !== ' ') return;
