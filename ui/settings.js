@@ -46,20 +46,21 @@ const suitsSel = makePicker(document.getElementById('suitsBtn'), document.getEle
 
 // Shuffle: Random (0) or a numbered preset deal (game.js SHUFFLE_LISTS), its cards left to right
 // from the top of the deck. The menu's value for a deal is its position in the list plus 1.
-// Each list starts under a heading with its setup (2223, 4223, ...), and numbering restarts in each
+// Each list sits in a group headed by its setup (2223, 4223, ...), and numbering restarts in each
 // list. The closed button shows a deal's cards when they fit (4 cards), otherwise its number and setup.
-const shuffleOptions = G.presetShuffles().map((p) => ({ ...p, setup: G.setupText(G.prepareDeck(p.deck, p.settings)) }));
+const shuffleOptions = G.presetShuffles().map((p) => ({ ...p, setup: setupCode(p.settings) }));
+const opt = (v) => shuffleOptions[v - 1];   // the deal for a menu value (1 and up; 0 is Random)
 const BUTTON_CARDS = 4;
 const cardHTML = (c) => `<span class="${G.isRed(c) ? 'r' : 'b'}">${G.label(c)}</span>`;
-const dealHTML = (v) => (v ? `<span class="deal-no">${shuffleOptions[v - 1].n}</span><span class="deal-cards">${shuffleOptions[v - 1].deck.map(cardHTML).join('')}</span>` : 'Random');
+const dealHTML = (v) => (v ? `<span class="deal-no">${opt(v).n}</span><span class="deal-cards">${opt(v).deck.map(cardHTML).join('')}</span>` : 'Random');
 const shuffleSel = makePicker(document.getElementById('shuffleBtn'), document.getElementById('shuffleList'), 'Custom shuffle',
   [0, ...shuffleOptions.map((_, i) => i + 1)],
   dealHTML,
-  (v) => (v ? `Deal ${shuffleOptions[v - 1].n} of ${shuffleOptions[v - 1].setup}: ${shuffleOptions[v - 1].deck.map(G.spokenName).join(', ')}` : 'Random'),
+  (v) => (v ? `Setup ${opt(v).setup}, deal ${opt(v).n}: ${opt(v).deck.map(G.spokenName).join(', ')}` : 'Random'),
   {
-    heading: (v) => (v && shuffleOptions[v - 1].n === 1 ? shuffleOptions[v - 1].setup : ''),
-    buttonHtml: (v) => (v && shuffleOptions[v - 1].deck.length > BUTTON_CARDS
-      ? `<span class="deal-no tight">${shuffleOptions[v - 1].n}</span>· ${shuffleOptions[v - 1].setup}` : dealHTML(v)),
+    group: (v) => (v ? opt(v).setup : ''),
+    buttonHtml: (v) => (v && opt(v).deck.length > BUTTON_CARDS
+      ? `<span class="deal-no tight">${opt(v).n}</span>· ${opt(v).setup}` : dealHTML(v)),
   });
 
 /** Show the current shuffle's deal in the Shuffle menu if it's a listed one, otherwise Random. */
@@ -70,7 +71,7 @@ export function syncShufflePicker() {
 /** Status for a fresh random shuffle, naming its number if it is one of the listed deals. */
 export function shuffledMessage() {
   const v = shuffleSel.value;
-  return v ? `Cards shuffled: deal ${shuffleOptions[v - 1].n} on the ${shuffleOptions[v - 1].setup} Custom shuffle list. Click Deal to start.` : 'Cards shuffled. Click Deal to start.';
+  return v ? `Cards shuffled: deal ${opt(v).n} on the ${opt(v).setup} Custom shuffle list. Click Deal to start.` : 'Cards shuffled. Click Deal to start.';
 }
 
 export function syncSettingsUI() {

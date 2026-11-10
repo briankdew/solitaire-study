@@ -223,8 +223,10 @@ export function updateDiagram() {
   if (!show) { shownKey = ''; shownCount = 0; winPanel.style.paddingBottom = ''; return; }
 
   const g = computeGeom(model);
-  const label = (k) => model.snaps[k].label || `${G.setupText(S.shuffleState)} D/CS${G.presetShuffles()[shuffleNumber() - 1].n}`;
-  const key = [g.width, g.cw, shuffleNumber(), S.record ? S.record.map((t) => G.tokenText(t)).join(' ') : ''].join('|');
+  const shuffle = shuffleNumber();
+  const dealLabel = `${G.setupText(S.shuffleState)} D/CS${G.presetShuffles()[shuffle - 1].n}`;   // n: its number in its own list
+  const label = (k) => model.snaps[k].label || dealLabel;
+  const key = [g.width, g.cw, shuffle, S.record ? S.record.map((t) => G.tokenText(t)).join(' ') : ''].join('|');
   const sizeChanged = !geom || geom.width !== g.width || geom.height !== g.height;
   geom = g;
   if (sizeChanged || !winPanel.style.paddingBottom) placeDiagram();

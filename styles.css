@@ -185,14 +185,12 @@ body {
   white-space: nowrap;
   cursor: pointer;
 }
-.picker-list li:hover, .picker-list li.active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.picker-list li[role="option"]:hover, .picker-list li.active { background: color-mix(in srgb, var(--ink) 14%, transparent); }
 .picker-list li[aria-selected="true"] { box-shadow: inset 3px 0 0 var(--brass); }
-/* A list's heading (Custom shuffle: the setup each list is for), styled like a setting's name. */
-.picker-list li.picker-heading {
-  padding: 8px 8px 2px; cursor: default; background: none;
-  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-muted);
-}
-.picker-list li.picker-heading:first-child { padding-top: 4px; }
+/* A group of options under a heading (Custom shuffle: one list per setup), the heading styled like a setting's name. */
+.picker-list li.picker-group { padding: 0; cursor: default; }
+.picker-group ul { margin: 0; padding: 0; list-style: none; }
+.picker-heading { padding: 8px 8px 2px; font-size: 0.7rem; letter-spacing: 0.1em; color: var(--ink-muted); }
 .suit-set { font-size: calc(13em / 11); line-height: 1; letter-spacing: 0; }
 .suit-set .r { color: var(--red); }
 .suit-set .b { color: var(--black); }

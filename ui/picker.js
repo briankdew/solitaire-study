@@ -3,18 +3,26 @@
 /**
  * A small dropdown (button + listbox) that acts like a <select> for the settings code:
  * it has a `value` and fires 'change' when the player picks a different option.
- * Options: `heading(v)` gives a heading to show above choice v in the list (or nothing), and
- * `buttonHtml(v)` what the closed button shows for v when it differs from the list row.
+ * Options: `group(v)` names the group choice v belongs to (or '' for none); consecutive choices
+ * with the same name are listed together under it as a heading. `buttonHtml(v)` is what the
+ * closed button shows for v when it differs from the list row.
  */
-export function makePicker(btn, list, name, choices, html, spoken, { heading = () => '', buttonHtml = html } = {}) {
+export function makePicker(btn, list, name, choices, html, spoken, { group = () => '', buttonHtml = html } = {}) {
   const picker = new EventTarget();
   let value = choices[0];
   let active = 0;
-  list.innerHTML = choices.map((v, i) => {
-    const head = heading(v);
-    return (head ? `<li role="presentation" class="picker-heading">${head}</li>` : '')
-      + `<li role="option" id="${list.id}-${i}" aria-label="${spoken(v)}">${html(v)}</li>`;
-  }).join('');
+  const optionHTML = (v, i) => `<li role="option" id="${list.id}-${i}" aria-label="${spoken(v)}">${html(v)}</li>`;
+  let rows = '';
+  for (let i = 0; i < choices.length;) {
+    const g = group(choices[i]);
+    if (!g) { rows += optionHTML(choices[i], i); i++; continue; }
+    const id = `${list.id}-g${i}`;
+    let inner = '';
+    for (; i < choices.length && group(choices[i]) === g; i++) inner += optionHTML(choices[i], i);
+    rows += `<li role="group" class="picker-group" aria-labelledby="${id}">`
+      + `<div class="picker-heading" id="${id}">${g}</div><ul role="none">${inner}</ul></li>`;
+  }
+  list.innerHTML = rows;
   const items = [...list.querySelectorAll('li[role="option"]')];
   function show() {
     btn.querySelector('.picker-value').innerHTML = buttonHtml(value);

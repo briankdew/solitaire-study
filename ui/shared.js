@@ -47,7 +47,8 @@ export const top = (pile) => pile[pile.length - 1];
 export const rankLabel = (rank) => G.RANK_LABEL[rank];
 export const withArticle = (rank) => (rank === 8 ? 'an ' : 'a ') + rankLabel(rank);
 /** The setup code (the record header): highest card, suits, columns, draw, as G.setupText writes it. */
-export const setupCode = () => rankLabel(S.settings.highest) + S.settings.suits + S.settings.columns + S.settings.draw;
+/** The four-character setup (highest, suits, columns, draw), e.g. 4223: the current settings, or the ones given. */
+export const setupCode = (s = S.settings) => rankLabel(s.highest) + s.suits + s.columns + s.draw;
 
 /** A dealt game that hasn't been won or quit. */
 export function inPlay() {
