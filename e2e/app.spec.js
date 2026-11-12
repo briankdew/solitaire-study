@@ -359,18 +359,19 @@ test.describe('settings', () => {
   test('Card font sets the card faces\' font without reshuffling, and is remembered', async ({ page }) => {
     await openApp(page);
     await deal(page);
-    const faceFont = () => page.locator('.card.up .idx').first().evaluate((el) => getComputedStyle(el).fontFamily);
+    const faceFont = () => page.locator('.card .idx').first().evaluate((el) => getComputedStyle(el).fontFamily);
     await expect(page.locator('#cardFontSel')).toHaveValue('libertinus');
     expect(await faceFont()).toContain('Libertinus Mono Cards');
+    // Only the card faces change: the record keeps its own font.
+    expect(await page.locator('#steps .step').first().evaluate((el) => getComputedStyle(el).fontFamily)).toContain('Cousine Record');
     const before = await recordText(page);
     await page.locator('#cardFontSel').selectOption('original');
     expect(await faceFont()).toContain('Libre Bodoni');
     expect(await recordText(page)).toBe(before);                  // same game, nothing reshuffled
     await expect(page.locator('#confirmModal')).toBeHidden();
-    // Only the card faces change: the record keeps its own font.
-    expect(await page.locator('#steps').evaluate((el) => getComputedStyle(el.querySelector('.cards') || el).fontFamily)).not.toContain('Libertinus');
     await page.reload();
     await expect(page.locator('#cardFontSel')).toHaveValue('original');
+    expect(await faceFont()).toContain('Libre Bodoni');           // applied to the cards, not just the menu
   });
 });
 
