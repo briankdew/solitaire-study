@@ -325,6 +325,29 @@ body {
 }
 .court span { font-family: var(--font-ui); font-size: 0.5em; line-height: 1.2; }
 
+/* Card font setting, Libertinus: everything on a card face in Libertinus Mono (a subset with its own
+   suit symbols, in fonts/), regular weight as the font has no bold. The corner's rank and suit are the
+   same size. Without the setting (Original) the rules above apply unchanged. */
+@font-face {
+  font-family: 'Libertinus Mono Cards';
+  src: url('fonts/libertinus-mono-cards.woff2') format('woff2');
+  font-display: block;
+}
+[data-card-font="libertinus"] .face { font-family: 'Libertinus Mono Cards', monospace; }
+[data-card-font="libertinus"] .idx { font: 400 calc(var(--cw) * 0.23) / 0.95 'Libertinus Mono Cards', monospace; }
+[data-card-font="libertinus"] .idx span { font-family: inherit; font-size: 1em; line-height: 1.1; }
+/* Its suit symbols are about a third larger than the original's at the same size, so the pips are set
+   a little smaller, to look about the size of the original pips while keeping clear of the corners. */
+[data-card-font="libertinus"] .pips { font-size: calc(var(--cw) * 0.17); }
+[data-card-font="libertinus"] .pips.n1 { font-size: calc(var(--cw) * 0.42); }
+[data-card-font="libertinus"] .pips.n2, [data-card-font="libertinus"] .pips.n3 { font-size: calc(var(--cw) * 0.21); }
+[data-card-font="libertinus"] .court { font: 400 calc(var(--cw) * 0.38) / 1 'Libertinus Mono Cards', monospace; }
+[data-card-font="libertinus"] .court span { font-family: inherit; }
+/* The font has no bold, so ranks (corners and court letters, not suits or pips) are thickened with an
+   outline in their own color: 0.03em, halfway between the regular weight and a typical bold (0.06em). */
+[data-card-font="libertinus"] .idx, [data-card-font="libertinus"] .court { -webkit-text-stroke: 0.03em currentColor; }
+[data-card-font="libertinus"] .idx span, [data-card-font="libertinus"] .court span { -webkit-text-stroke: 0; }
+
 .back {
   border: calc(var(--cw) * 0.06) solid var(--card);
   background-color: var(--back);

@@ -1,6 +1,6 @@
 // The settings menus: High card, Suits, Columns, Draw, Custom shuffle and Auto-complete.
-import { AUTO_FINISH_KEY, G, S, SETTINGS_KEY, inPlay, rankLabel, say, setupCode, withArticle } from './shared.js';
-import { autoFinishChk, columnsSel, drawSel, highestSel, ruleLine, settingsHint } from './dom.js';
+import { AUTO_FINISH_KEY, CARD_FONT_KEY, G, S, SETTINGS_KEY, inPlay, rankLabel, say, setupCode, withArticle } from './shared.js';
+import { autoFinishChk, cardFontSel, columnsSel, drawSel, highestSel, ruleLine, settingsHint, tableWrap } from './dom.js';
 import { makePicker } from './picker.js';
 import { confirmReshuffle, prepareNewShuffle, runAutoFinish } from './actions.js';
 
@@ -29,6 +29,25 @@ function onAutoFinishChange() {
 }
 autoFinishChk.checked = S.autoFinish;
 autoFinishChk.addEventListener('change', onAutoFinishChange);
+
+// Card font: the font of everything on the card faces on the table (not the record or the diagram).
+// A preference like Auto-complete, so changing it never reshuffles. 'original' is the first design:
+// Libre Bodoni ranks with Karla (or the device's) suits, the corner suit a little smaller.
+const CARD_FONTS = { libertinus: 'Libertinus Mono', original: 'Original' };
+function loadCardFont() {
+  try { const v = localStorage.getItem(CARD_FONT_KEY); if (v in CARD_FONTS) return v; } catch (e) { /* storage unavailable */ }
+  return 'libertinus';
+}
+function applyCardFont(v) {
+  tableWrap.dataset.cardFont = v;
+  cardFontSel.value = v;
+}
+cardFontSel.innerHTML = Object.entries(CARD_FONTS).map(([v, text]) => `<option value="${v}">${text}</option>`).join('');
+applyCardFont(loadCardFont());
+cardFontSel.addEventListener('change', () => {
+  applyCardFont(cardFontSel.value);
+  try { localStorage.setItem(CARD_FONT_KEY, cardFontSel.value); } catch (e) { /* ignore */ }
+});
 
 function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(S.settings)); } catch (e) { /* ignore */ }

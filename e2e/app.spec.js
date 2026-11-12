@@ -355,6 +355,23 @@ test.describe('settings', () => {
     await expect(page.locator('#drawSel')).toHaveValue('1');
     await expect(page.locator('#ruleLine')).toContainText('Setup 3221');
   });
+
+  test('Card font sets the card faces\' font without reshuffling, and is remembered', async ({ page }) => {
+    await openApp(page);
+    await deal(page);
+    const faceFont = () => page.locator('.card.up .idx').first().evaluate((el) => getComputedStyle(el).fontFamily);
+    await expect(page.locator('#cardFontSel')).toHaveValue('libertinus');
+    expect(await faceFont()).toContain('Libertinus Mono Cards');
+    const before = await recordText(page);
+    await page.locator('#cardFontSel').selectOption('original');
+    expect(await faceFont()).toContain('Libre Bodoni');
+    expect(await recordText(page)).toBe(before);                  // same game, nothing reshuffled
+    await expect(page.locator('#confirmModal')).toBeHidden();
+    // Only the card faces change: the record keeps its own font.
+    expect(await page.locator('#steps').evaluate((el) => getComputedStyle(el.querySelector('.cards') || el).fontFamily)).not.toContain('Libertinus');
+    await page.reload();
+    await expect(page.locator('#cardFontSel')).toHaveValue('original');
+  });
 });
 
 test.describe('layout', () => {
