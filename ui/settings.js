@@ -1,4 +1,4 @@
-// The settings menus: High card, Suits, Columns, Draw, Custom shuffle and Auto-complete.
+// The settings menus: High card, Suits, Columns, Draw, Custom shuffle, Card font and Auto-complete.
 import { AUTO_FINISH_KEY, CARD_FONT_KEY, G, S, SETTINGS_KEY, inPlay, rankLabel, say, setupCode, withArticle } from './shared.js';
 import { autoFinishChk, cardFontSel, columnsSel, drawSel, highestSel, ruleLine, settingsHint, tableWrap } from './dom.js';
 import { makePicker } from './picker.js';
@@ -35,7 +35,7 @@ autoFinishChk.addEventListener('change', onAutoFinishChange);
 // Libre Bodoni ranks with Karla (or the device's) suits, the corner suit a little smaller.
 const CARD_FONTS = { libertinus: 'Libertinus Mono', original: 'Original' };
 function loadCardFont() {
-  try { const v = localStorage.getItem(CARD_FONT_KEY); if (v in CARD_FONTS) return v; } catch (e) { /* storage unavailable */ }
+  try { const v = localStorage.getItem(CARD_FONT_KEY); if (Object.hasOwn(CARD_FONTS, v)) return v; } catch (e) { /* storage unavailable */ }
   return 'libertinus';
 }
 function applyCardFont(v) {
