@@ -20,6 +20,7 @@ export const highestSel = document.getElementById('highestSel');
 export const columnsSel = document.getElementById('columnsSel');
 export const drawSel = document.getElementById('drawSel');
 export const autoFinishChk = document.getElementById('autoFinishChk');
+export const cardFontSel = document.getElementById('cardFontSel');
 export const settingsHint = document.getElementById('settingsHint');
 export const recordEl = document.getElementById('record');
 export const recordFrame = document.getElementById('recordFrame');

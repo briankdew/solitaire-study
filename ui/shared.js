@@ -27,6 +27,7 @@ export const SETTINGS_KEY = 'solitaire-study.settings';
 // Raised whenever the rules change how a saved game deals or plays (2: row deal, suit order ♠ ♥ ♣ ♦).
 export const SAVE_RULES = 2;
 export const AUTO_FINISH_KEY = 'solitaire-study.autoFinish';
+export const CARD_FONT_KEY = 'solitaire-study.cardFont';
 export const Z = { stock: 100, waste: 200, foundation: 300, tableau: 400, moving: 1000, dragging: 3000 };
 
 // Pip positions inside the .pips box, as [x%, y%]; pips below the middle are drawn upside down.
